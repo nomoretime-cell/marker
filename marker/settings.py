@@ -71,7 +71,8 @@ class Settings(BaseSettings):
         "\mathbf{\mathbf"
     ]
     NOUGAT_DPI: int = 96 # DPI to render images at, matches default settings for nougat
-    NOUGAT_MODEL_NAME: str = "0.1.0-small" # Name of the model to use
+    NOUGAT_MODEL_NAME: Optional[str] = None # Name of the model to use
+    NOUGAT_MODEL_TAG: str = "0.1.0-small" # Tag of the model to use
     NOUGAT_BATCH_SIZE: int = 6 if TORCH_DEVICE == "cuda" else 1 # Batch size for nougat, don't batch on cpu
 
     # Layout model
