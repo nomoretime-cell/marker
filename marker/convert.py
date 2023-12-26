@@ -57,11 +57,11 @@ def get_length_of_text(fname: str) -> int:
 
 
 def convert_single_pdf(
-        fname: str,
-        model_lst: List,
-        max_pages=None,
-        metadata: Optional[Dict]=None,
-        parallel_factor: int = 1
+    fname: str,
+    model_lst: List,
+    max_pages=None,
+    metadata: Optional[Dict] = None,
+    parallel_factor: int = 1,
 ) -> Tuple[str, Dict]:
     lang = settings.DEFAULT_LANG
     if metadata:
@@ -82,7 +82,7 @@ def convert_single_pdf(
 
     out_meta["filetype"] = filetype
 
-    doc = pymupdf.open(fname, filetype=filetype)
+    doc: pymupdf.Document = pymupdf.open(fname, filetype=filetype)
     if filetype != "pdf":
         conv = doc.convert_to_pdf()
         doc = pymupdf.open("pdf", conv)
@@ -92,7 +92,7 @@ def convert_single_pdf(
         tess_lang,
         spell_lang,
         max_pages=max_pages,
-        parallel=parallel_factor * settings.OCR_PARALLEL_WORKERS
+        parallel=parallel_factor * settings.OCR_PARALLEL_WORKERS,
     )
 
     out_meta["toc"] = toc
@@ -109,7 +109,7 @@ def convert_single_pdf(
         doc,
         blocks,
         layoutlm_model,
-        batch_size=settings.LAYOUT_BATCH_SIZE * parallel_factor
+        batch_size=settings.LAYOUT_BATCH_SIZE * parallel_factor,
     )
 
     # Find headers and footers
@@ -125,7 +125,7 @@ def convert_single_pdf(
         doc,
         blocks,
         order_model,
-        batch_size=settings.ORDERER_BATCH_SIZE * parallel_factor
+        batch_size=settings.ORDERER_BATCH_SIZE * parallel_factor,
     )
 
     # Fix code blocks
@@ -148,7 +148,7 @@ def convert_single_pdf(
         blocks,
         block_types,
         nougat_model,
-        batch_size=settings.NOUGAT_BATCH_SIZE * parallel_factor
+        batch_size=settings.NOUGAT_BATCH_SIZE * parallel_factor,
     )
     out_meta["block_stats"]["equations"] = eq_stats
 
@@ -159,17 +159,15 @@ def convert_single_pdf(
     full_text = get_full_text(text_blocks)
 
     # Handle empty blocks being joined
-    full_text = re.sub(r'\n{3,}', '\n\n', full_text)
-    full_text = re.sub(r'(\n\s){3,}', '\n\n', full_text)
+    full_text = re.sub(r"\n{3,}", "\n\n", full_text)
+    full_text = re.sub(r"(\n\s){3,}", "\n\n", full_text)
 
     # Replace bullet characters with a -
     full_text = replace_bullets(full_text)
 
     # Postprocess text with editor model
     full_text, edit_stats = edit_full_text(
-        full_text,
-        edit_model,
-        batch_size=settings.EDITOR_BATCH_SIZE * parallel_factor
+        full_text, edit_model, batch_size=settings.EDITOR_BATCH_SIZE * parallel_factor
     )
     out_meta["postprocess_stats"] = {"edit": edit_stats}
 
