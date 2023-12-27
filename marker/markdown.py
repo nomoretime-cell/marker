@@ -1,6 +1,13 @@
 from marker.schema import MergedLine, MergedBlock, FullyMergedBlock, Page
 import re
 from typing import List
+from enum import Enum
+
+
+class IsContinuation(Enum):
+    TRUE = 1
+    FALSE = 2
+    NONE = 3
 
 
 def surround_text(s, char_to_insert):
@@ -84,43 +91,79 @@ def block_surround(text, block_type):
     return text
 
 
-def line_separator(line1, line2, block_type, is_continuation=False):
-    # Should cover latin-derived languages and russian
-    lowercase_letters = "a-zà-öø-ÿа-яşćăâđêôơưþðæøå"
-    uppercase_letters = "A-ZÀ-ÖØ-ßА-ЯŞĆĂÂĐÊÔƠƯÞÐÆØÅ"
-    # Remove hyphen in current line if next line and current line appear to be joined
-    hyphen_pattern = re.compile(rf".*[{lowercase_letters}][-]\s?$", re.DOTALL)
-    if (
-        line1
-        and hyphen_pattern.match(line1)
-        and re.match(rf"^[{lowercase_letters}]", line2)
-    ):
-        # Split on — or - from the right
-        line1 = re.split(r"[-—]\s?$", line1)[0]
-        return line1.rstrip() + line2.lstrip()
+def line_separator(
+    prev_line_text: str,
+    new_line_text: str,
+    block_type: str,
+    is_continuation: IsContinuation,
+):
+    lowercase_letters: str = "a-zà-öø-ÿа-яşćăâđêôơưþðæøå"
+    uppercase_letters: str = "A-ZÀ-ÖØ-ßА-ЯŞĆĂÂĐÊÔƠƯÞÐÆØÅ"
 
-    lowercase_pattern1 = re.compile(rf".*[{lowercase_letters},]\s?$", re.DOTALL)
-    lowercase_pattern2 = re.compile(
+    # 以任意数量的字符（除换行符外）开始，后跟小写字母范围中的一个字符，然后是短横线（减号）字符，最后是零个或一个空白字符，并且行结尾
+    # "a-"：匹配成功，因为以小写字母 "a" 结尾，并以短横线结尾。
+    # "b -"：匹配成功，因为以小写字母 "b" 结尾，并以空格和短横线结尾。
+    # "c\n-"：匹配成功，因为以小写字母 "c" 结尾，并以换行符和短横线结尾（由于使用了 re.DOTALL 标志）。
+    # "xyz"：匹配失败，因为没有以短横线结尾。
+    # "def -\n"：匹配失败，因为以空格和短横线结尾，并以换行符结尾，\s?$ 部分不匹配换行符。
+    hyphen_front_pattern = re.compile(rf".*[{lowercase_letters}][-]\s?$", re.DOTALL)
+    # 以小写字母范围中的任意一个字符开头的字符串。
+    # "a"：匹配成功，因为以小写字母 "a" 开头。
+    # "b"：匹配成功，因为以小写字母 "b" 开头。
+    # "x"：匹配成功，因为以小写字母 "x" 开头。
+    # "A"：匹配失败，因为以大写字母 "A" 开头，而模式只匹配小写字母范围中的字符。
+    # "123"：匹配失败，因为以数字开头，而不是小写字母。
+    hyphen_rear_pattern = re.compile(rf"^[{lowercase_letters}]")
+    # 以任意数量的字符（除换行符外）开始，后跟小写字母范围中的一个字符或逗号，然后是零个或一个空白字符，并且行结尾。
+    # "abc "：匹配成功，因为以小写字母 "c" 结尾，并以空白字符结尾。
+    # "def,"：匹配成功，因为以小写字母 "f" 结尾，并以逗号结尾。
+    # "xyz"：匹配失败，因为没有以小写字母或逗号结尾。
+    # "abc\ndef,"：匹配失败，因为 re.DOTALL 标志使.元字符能够匹配换行符，而 \s?$ 部分不匹配换行符，导致整个模式匹配失败。
+    line_front_pattern = re.compile(rf".*[{lowercase_letters},]\s?$", re.DOTALL)
+    # 以零个或一个空白字符开始，后跟大写字母范围或小写字母范围中的一个字符。
+    # "A"：匹配成功，因为以大写字母 "A" 开头。
+    # "b"：匹配成功，因为以小写字母 "b" 开头。
+    # " xyz"：匹配成功，因为以空格和小写字母 "x" 开头（由于使用了 ^\s? 部分）。
+    # " Y"：匹配失败，因为以两个空格和大写字母 "Y" 开头，而 ^\s? 部分只匹配零个或一个空白字符。
+    # "123"：匹配失败，因为以数字开头，而不是大写字母或小写字母。
+    line_rear_pattern = re.compile(
         rf"^\s?[{uppercase_letters}{lowercase_letters}]", re.DOTALL
     )
-    end_pattern = re.compile(r".*[.?!]\s?$", re.DOTALL)
+    # 以任意数量的字符（除换行符外）开始，后跟句号、问号或感叹号中的一个字符，然后是零个或一个空白字符，并且行结尾。
+    # "Hello world."：匹配成功，因为以句号结尾。
+    # "What's your name?"：匹配成功，因为以问号结尾。
+    # "It's raining!"：匹配成功，因为以感叹号结尾。
+    # "The cat is black."：匹配成功，因为以句号结尾。
+    # "Hello"：匹配失败，因为没有以句号、问号或感叹号结尾。
+    # "Hello\n"：匹配失败，因为以换行符结尾，而 \s?$ 部分不匹配换行符。
+    paragraph_end_pattern = re.compile(r".*[.?!]\s?$", re.DOTALL)
 
-    if block_type in ["Title", "Section-header"]:
-        return line1.rstrip() + " " + line2.lstrip()
+    if (
+        prev_line_text
+        and hyphen_front_pattern.match(prev_line_text)
+        and hyphen_rear_pattern.match(new_line_text)
+    ):
+        prev_line_text = re.split(r"[-—]\s?$", prev_line_text)[0]
+        return prev_line_text.rstrip() + new_line_text.lstrip()
+    elif block_type in ["Title", "Section-header"]:
+        return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+    elif is_continuation != IsContinuation.NONE:
+        if is_continuation == IsContinuation.TRUE:
+            return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+        elif is_continuation == IsContinuation.FALSE:
+            return prev_line_text + "\n\n" + new_line_text
     elif (
-        lowercase_pattern1.match(line1)
-        and lowercase_pattern2.match(line2)
+        line_front_pattern.match(prev_line_text)
+        and line_rear_pattern.match(new_line_text)
         and block_type == "Text"
     ):
-        return line1.rstrip() + " " + line2.lstrip()
-    elif is_continuation:
-        return line1.rstrip() + " " + line2.lstrip()
-    elif block_type == "Text" and end_pattern.match(line1):
-        return line1 + "\n\n" + line2
+        return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+    elif block_type == "Text" and paragraph_end_pattern.match(prev_line_text):
+        return prev_line_text + "\n\n" + new_line_text
     elif block_type == "Formula":
-        return line1 + " " + line2
+        return prev_line_text + " " + new_line_text
     else:
-        return line1 + "\n" + line2
+        return prev_line_text + "\n" + new_line_text
 
 
 def block_separator(line1, line2, block_type1, block_type2):
@@ -135,10 +178,12 @@ def merge_lines(blocks, page_blocks: List[Page]):
     text_blocks = []
     prev_type = None
     prev_line = None
+    prev_line_gap = -1
     block_text = ""
     block_type = ""
     common_line_heights = [p.get_line_height_stats() for p in page_blocks]
     for page in blocks:
+        is_newpage: bool = True
         for block in page:
             block_type = block.most_common_block_type()
             if block_type != prev_type and prev_type:
@@ -152,21 +197,50 @@ def merge_lines(blocks, page_blocks: List[Page]):
             prev_type = block_type
             # Join lines in the block together properly
             for i, line in enumerate(block.lines):
-                line_height = line.bbox[3] - line.bbox[1]
-                prev_line_height = (
-                    prev_line.bbox[3] - prev_line.bbox[1] if prev_line else 0
-                )
-                prev_line_x = prev_line.bbox[0] if prev_line else 0
-                prev_line = line
-                is_continuation = (
-                    line_height == prev_line_height and line.bbox[0] == prev_line_x
-                )
+                if line.text.strip() == "":
+                    continue
+                # TODO: 后续得看下，多页时 "\n" 是哪部分逻辑加入的？
+                line.text = line.text.replace("\n", "")
+
+                # 增加两种情况判断
+                # 1. 同一行数据被分成了两个line
+                # 2. gap变大一定是新起段落（new page除外）
+                # 3. 去除原不严谨判断
+                if prev_line:
+                    # Get gap with previous line
+                    line_gap = abs(line.bbox[3] - prev_line.bbox[3])
+
+                    if line_gap <= 5:
+                        # In same line -> IsContinuation.TRUE
+                        is_continuation: IsContinuation = IsContinuation.TRUE
+                    elif prev_line_gap != -1:
+                        # In different line
+                        if line_gap > (prev_line_gap + 5) and not is_newpage:
+                            # Gap is bigger than previous -> IsContinuation.FALSE
+                            is_continuation: IsContinuation = IsContinuation.FALSE
+                        else:
+                            # Gap is equal or smaller than previous -> [Not sure]
+                            is_continuation: IsContinuation = IsContinuation.NONE
+                    else:
+                        # prev_line_gap == -1 -> [Not sure]
+                        is_continuation: IsContinuation = IsContinuation.NONE
+                    prev_line_gap = line_gap
+                else:
+                    # prev_line is NONE -> [Not sure]
+                    is_continuation: IsContinuation = IsContinuation.NONE
+
+                # Append text
                 if block_text:
                     block_text = line_separator(
                         block_text, line.text, block_type, is_continuation
                     )
                 else:
                     block_text = line.text
+
+                # Reset var
+                prev_line = line
+                if is_newpage:
+                    is_newpage = False
 
     # Append the final block
     text_blocks.append(
