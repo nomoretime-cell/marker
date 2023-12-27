@@ -107,6 +107,7 @@ def line_separator(
     # "xyz"：匹配失败，因为没有以短横线结尾。
     # "def -\n"：匹配失败，因为以空格和短横线结尾，并以换行符结尾，\s?$ 部分不匹配换行符。
     hyphen_front_pattern = re.compile(rf".*[{lowercase_letters}][-]\s?$", re.DOTALL)
+
     # 以小写字母范围中的任意一个字符开头的字符串。
     # "a"：匹配成功，因为以小写字母 "a" 开头。
     # "b"：匹配成功，因为以小写字母 "b" 开头。
@@ -114,21 +115,29 @@ def line_separator(
     # "A"：匹配失败，因为以大写字母 "A" 开头，而模式只匹配小写字母范围中的字符。
     # "123"：匹配失败，因为以数字开头，而不是小写字母。
     hyphen_rear_pattern = re.compile(rf"^[{lowercase_letters}]")
+
     # 以任意数量的字符（除换行符外）开始，后跟小写字母范围中的一个字符或逗号，然后是零个或一个空白字符，并且行结尾。
     # "abc "：匹配成功，因为以小写字母 "c" 结尾，并以空白字符结尾。
     # "def,"：匹配成功，因为以小写字母 "f" 结尾，并以逗号结尾。
     # "xyz"：匹配失败，因为没有以小写字母或逗号结尾。
     # "abc\ndef,"：匹配失败，因为 re.DOTALL 标志使.元字符能够匹配换行符，而 \s?$ 部分不匹配换行符，导致整个模式匹配失败。
-    line_front_pattern = re.compile(rf".*[{lowercase_letters},]\s?$", re.DOTALL)
+    line_front_pattern = re.compile(rf".*[{lowercase_letters},0-9]\s?$", re.DOTALL)
+
     # 以零个或一个空白字符开始，后跟大写字母范围或小写字母范围中的一个字符。
     # "A"：匹配成功，因为以大写字母 "A" 开头。
     # "b"：匹配成功，因为以小写字母 "b" 开头。
     # " xyz"：匹配成功，因为以空格和小写字母 "x" 开头（由于使用了 ^\s? 部分）。
-    # " Y"：匹配失败，因为以两个空格和大写字母 "Y" 开头，而 ^\s? 部分只匹配零个或一个空白字符。
+    # "  Y"：匹配失败，因为以两个空格和大写字母 "Y" 开头，而 ^\s? 部分只匹配零个或一个空白字符。
     # "123"：匹配失败，因为以数字开头，而不是大写字母或小写字母。
+
     line_rear_pattern = re.compile(
         rf"^\s?[{uppercase_letters}{lowercase_letters}]", re.DOTALL
     )
+
+    line_rear_pattern2 = re.compile(
+        rf"^\s?[{uppercase_letters},{lowercase_letters},0-9,.*]", re.DOTALL
+    )
+
     # 以任意数量的字符（除换行符外）开始，后跟句号、问号或感叹号中的一个字符，然后是零个或一个空白字符，并且行结尾。
     # "Hello world."：匹配成功，因为以句号结尾。
     # "What's your name?"：匹配成功，因为以问号结尾。
@@ -137,6 +146,31 @@ def line_separator(
     # "Hello"：匹配失败，因为没有以句号、问号或感叹号结尾。
     # "Hello\n"：匹配失败，因为以换行符结尾，而 \s?$ 部分不匹配换行符。
     paragraph_end_pattern = re.compile(r".*[.?!]\s?$", re.DOTALL)
+
+    # 用于匹配以大写字母开头的字符串行
+    # "Hello, world!"：匹配成功，因为行以大写字母开头。
+    # " This is a test"：匹配成功，因为行以一个空白字符开头。
+    # "123ABC"：匹配失败，因为行不以大写字母开头。
+    # "a sentence."：匹配失败，因为行不以大写字母开头。
+    uppercase_head_pattern = re.compile(rf"^\s?[{uppercase_letters}]", re.DOTALL)
+
+    # 用于匹配以两个或更多个空白字符开头，并且后面紧跟着一个大写字母的字符串行
+    # "Hello, world!"：匹配失败，因为行开头没有两个以上空白字符。
+    # " A"：匹配成功，因为行以两个空白字符开头，后面紧跟着一个大写字母。
+    # " ABC"：匹配成功，因为行以四个空白字符开头，后面紧跟着一个大写字母。
+    uppercase_indent_head_pattern = re.compile(
+        rf"^\s{2,}[{uppercase_letters}]", re.DOTALL
+    )
+
+    # 用于匹配不以大写字母开头的字符串行
+    # "Hello, world!"：匹配失败，因为行以大写字母开头。
+    # " this is a test"：匹配成功，因为行以一个空白字符开头，后面紧跟着一个小写字母。
+    # "123abc"：匹配成功，因为行以数字开头。
+    # "a sentence."：匹配成功，因为行以小写字母开头。
+    not_uppercase_head_pattern = re.compile(rf"^\s?[^{uppercase_letters}]", re.DOTALL)
+
+    prev_line_text = prev_line_text.rstrip()
+    new_line_text = new_line_text.lstrip()
 
     if (
         prev_line_text
@@ -152,18 +186,35 @@ def line_separator(
             return prev_line_text.rstrip() + " " + new_line_text.lstrip()
         elif is_continuation == IsContinuation.FALSE:
             return prev_line_text + "\n\n" + new_line_text
-    elif (
-        line_front_pattern.match(prev_line_text)
-        and line_rear_pattern.match(new_line_text)
-        and block_type == "Text"
-    ):
-        return prev_line_text.rstrip() + " " + new_line_text.lstrip()
-    elif block_type == "Text" and paragraph_end_pattern.match(prev_line_text):
-        return prev_line_text + "\n\n" + new_line_text
+    # elif (
+    #     line_front_pattern.match(prev_line_text)
+    #     and line_rear_pattern.match(new_line_text)
+    #     and block_type == "Text"
+    # ):
+    #     return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+    # elif (
+    #     block_type == "Text"
+    #     and paragraph_end_pattern.match(prev_line_text)
+    #     and uppercase_indent_head_pattern.match(new_line_text)
+    # ):
+    #     return prev_line_text + "\n\n" + new_line_text
+    # elif block_type == "Text" and paragraph_end_pattern.match(prev_line_text):
+    #     return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+    # elif (
+    #     block_type == "Text"
+    #     and paragraph_end_pattern.match(prev_line_text)
+    #     and not_uppercase_head_pattern.match(new_line_text)
+    # ) or (
+    #     block_type == "Text"
+    #     and paragraph_end_pattern.match(prev_line_text)
+    #     and uppercase_head_pattern.match(new_line_text)
+    # ):
+    #     return prev_line_text.rstrip() + " " + new_line_text.lstrip()
     elif block_type == "Formula":
         return prev_line_text + " " + new_line_text
+    # 是否换行不取决于是否以 paragraph_end_pattern 结尾，而是：缩进；行间隔增大
     else:
-        return prev_line_text + "\n" + new_line_text
+        return prev_line_text + " " + new_line_text
 
 
 def block_separator(line1, line2, block_type1, block_type2):
@@ -181,7 +232,6 @@ def merge_lines(blocks, page_blocks: List[Page]):
     prev_line_gap = -1
     block_text = ""
     block_type = ""
-    common_line_heights = [p.get_line_height_stats() for p in page_blocks]
     for page in blocks:
         is_newpage: bool = True
         for block in page:
@@ -199,20 +249,26 @@ def merge_lines(blocks, page_blocks: List[Page]):
             for i, line in enumerate(block.lines):
                 if line.text.strip() == "":
                     continue
-                # TODO: 后续得看下，多页时 "\n" 是哪部分逻辑加入的？
-                line.text = line.text.replace("\n", "")
+                # TODO: 多页时 "\n" 由 Code 部分引入
+                # line.text = line.text.replace("\n", "")
 
                 # 增加两种情况判断
                 # 1. 同一行数据被分成了两个line
                 # 2. gap变大一定是新起段落（new page除外）
                 # 3. 去除原不严谨判断
+                if_update_prev_line: bool = True
                 if prev_line:
                     # Get gap with previous line
                     line_gap = abs(line.bbox[3] - prev_line.bbox[3])
+                    line_indent = line.bbox[0] - prev_line.bbox[0]
 
                     if line_gap <= 5:
                         # In same line -> IsContinuation.TRUE
                         is_continuation: IsContinuation = IsContinuation.TRUE
+                        if_update_prev_line = False
+                    elif line_indent > 10: # TODO 多栏时，这个问题还需要再考虑下
+                        # This line indent is bigger than Prev line 10 -> IsContinuation.FALSE
+                        is_continuation: IsContinuation = IsContinuation.FALSE
                     elif prev_line_gap != -1:
                         # In different line
                         if line_gap > (prev_line_gap + 5) and not is_newpage:
@@ -224,7 +280,8 @@ def merge_lines(blocks, page_blocks: List[Page]):
                     else:
                         # prev_line_gap == -1 -> [Not sure]
                         is_continuation: IsContinuation = IsContinuation.NONE
-                    prev_line_gap = line_gap
+                    if if_update_prev_line:
+                        prev_line_gap = line_gap
                 else:
                     # prev_line is NONE -> [Not sure]
                     is_continuation: IsContinuation = IsContinuation.NONE
@@ -238,7 +295,8 @@ def merge_lines(blocks, page_blocks: List[Page]):
                     block_text = line.text
 
                 # Reset var
-                prev_line = line
+                if if_update_prev_line:
+                    prev_line = line
                 if is_newpage:
                     is_newpage = False
 
