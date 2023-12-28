@@ -115,6 +115,8 @@ def line_separator(
     # "123"：匹配失败，因为以数字开头，而不是小写字母。
     hyphen_rear_pattern = re.compile(rf"^[{lowercase_letters}]")
 
+    number_head_pattern = re.compile(r"^\s?[0-9]", re.DOTALL)
+
     prev_line_text = prev_line_text.rstrip()
     new_line_text = new_line_text.lstrip()
 
@@ -126,14 +128,17 @@ def line_separator(
         prev_line_text = re.split(r"[-—]\s?$", prev_line_text)[0]
         return prev_line_text.rstrip() + new_line_text.lstrip()
     elif block_type in ["Title", "Section-header"]:
-        return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+        if number_head_pattern.match(new_line_text):
+            return prev_line_text + "\n\n## " + new_line_text    
+        elif not number_head_pattern.match(new_line_text):     
+            return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+    elif block_type == "List-item" and number_head_pattern.match(new_line_text):
+        return prev_line_text + "\n\n" + new_line_text
     elif is_continuation != IsContinuation.NONE:
         if is_continuation == IsContinuation.TRUE:
             return prev_line_text.rstrip() + " " + new_line_text.lstrip()
         elif is_continuation == IsContinuation.FALSE:
             return prev_line_text + "\n\n" + new_line_text
-    elif block_type == "Formula":
-        return prev_line_text + " " + new_line_text
     # 是否换行不取决于是否以 paragraph_end_pattern 结尾，而是：缩进；行间隔增大
     else:
         return prev_line_text + " " + new_line_text
@@ -215,6 +220,8 @@ def line_separator_old(
         return prev_line_text + "\n\n" + new_line_text
     elif block_type == "Text" and paragraph_end_pattern.match(prev_line_text):
         return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+    elif block_type == "Formula":
+        return prev_line_text + " " + new_line_text
     elif (
         block_type == "Text"
         and paragraph_end_pattern.match(prev_line_text)

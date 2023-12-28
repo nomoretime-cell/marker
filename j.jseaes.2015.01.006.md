@@ -82,7 +82,9 @@ The inferred hanging wall rocks show no succession from Cambrian to Triassic as 
 
 ## 3. Dome Structure
 
-3. 1. Dai Nui Con Voi dome, and Song Chay and Red River faults 3. 1. 1. Dome 
+3. 1. Dai Nui Con Voi dome, and Song Chay and Red River faults
+
+3. 1. 1. Dome 
 The Dai Nui Con Voi dome consists primarily of gneiss consisting of biotite, muscovite, silimanite, quartz, with porphyroblasts of garnet and plagioclase, as well as some amphibolite made up of hornblende and plagioclase.  These metamorphic rocks are typical L-tectonites, and minerals stretched or elongated NW-SE define D1 stretching lineations (L1) formed on a D1 foliation (S1; Fig. 3B). D1 stretching lineations have generally low to moderate plunge and their average trend is slightly oblique to the average S0 foliation strike (more northerly or southerly; Fig. 3A). Prolate strain can be estimated by the stretched shape of these minerals, especially plagioclase porphryroblasts (Fig. 3D; see procedure shown in Osozawa et al., 2004, 2009).
 
 In XZ sections cut parallel to the D1 lineation (L1) and orthogonal to the mildly developed D1 foliation (S1; S0 is more distinct but the strike is subparallel to S1), dextral ductile shear is indicated by asymmetric pressure shadows around garnet and plagioclase crystals observed in the both limbs of dome (Fig. 4).
@@ -107,7 +109,9 @@ Based on these observations especially of the high-angle striations, Red River f
 
 The Song Chay fault is observed along the Song Chay river, especially along the Bao Yen road, and easily recognizable as a gouge-lined fault. In Bao Yen, Neogene conglomerate also crops out, and is cut by a normal fault (Fig. 8A).  The striations on gouge are high-angle (Fig. 8B), although low to moderate angle striations are also observed (Fig. 8C). Interestingly, D2 NE-vergent asymmetric folds, opposite to the SW vergence in D1 folds, are observed in gneiss and hanging wall rocks close to the Song Chay fault. Serpentinite is observed along the Song Chay fault (Fig. 8D), and the foliation strikes NW-SE and dips steeply, associated with NE-vergent minor folds. The Song Chay fault is a NW-SE-trending high-angle brittle (D2) fault. The fault is a steep normal fault down-dropped to the NE (Fig. 2 bottom). The strike-slip component is negligible. 
 
-## 3. 2. Song Chay Dome 3. 2. 1. Dome
+## 3. 2. Song Chay Dome
+
+## 3. 2. 1. Dome
 
 The Song Chay dome is balloon shaped, with a NE-SW axis, in contrast to the NW-SE trending Dai Nui Con Voi dome (Fig. 1). The dome straddles the Chinese border, and we have not examined the northern part of the dome.  The dome core consists of foliated granite (Fig. 9), in contrast to the gneiss of the Dai Nui Con Voi dome. These rocks are composed of biotite, quartz, and feldspar including potash feldspar (Fig. 9A, B), with some muscovite (Fig. 9C, D) and most of these minerals are metamorphic.  Therefore, the rock is gneissose granite. Large feldspars observed in outcrops are porphyroblasts (metamorphic) rather than phenocrysts (igneous) (Fig. 9E, F).
 
@@ -146,7 +150,9 @@ The Bu Khang dome is southwest of the above-mentioned domes (Fig. 1). This dome 
 The detachment faults juxtaposing the gneiss and calcareous schist are not observed by our observation. The upper contact of calcareous schist is marked by thick gouge fault, and observed at several places (Fig. 14A, B). The striations on the fault gouge are down-dip. Pelitic schist make up the hanging wall rocks and, near the detachment fault, these rocks are involved in D2 asymmetric folds with vergence away 
 from dome axis (Fig. 14C, D). 
 
-## 4. Hanging Wall Rocks Assemblage: Block-In-Matrix Relationships Instead Of Depositional Stratigraphy 4. 1. Lithological Assemblage
+## 4. Hanging Wall Rocks Assemblage: Block-In-Matrix Relationships Instead Of Depositional Stratigraphy
+
+## 4. 1. Lithological Assemblage
 
 On the Geological and Mineral Resources Map of Viet NAM, Cambrian to Devonian strata are depicted as surrounding the metamorphic dome, which comprise mostly consist of pelitic and psamitic schists (mudstone and sandstone), with lesser amounts of calcareous and mafic schists (limestone and basalt). The ages of the hanging wall strata are based on stratigraphic (fossil) ages from a variety of lithologies, but without sufficient field context.  For example, sandstone is Devonian, limestone is Carboniferous to Permian, and thick limestone locally associated with basalt is Triassic. However, the limestone and basalt are exotic blocks (locally recognizable at map scale) in a sandy and muddy matrix.  This type of contact relationship precludes an age relationship based on conformable depositional stratigraphy, as previously interpreted.
 
@@ -223,7 +229,9 @@ Bulletin 86, 797-806. Hutchinson C.S., 1989. Geological Evolution of SE Asia. Ox
 
 Geology and Geophysics 13, 368 pp. Jolivet, L., Beyssac, O., Goffe, B., Avigad, D., Lepvrier, C., Muluski, H., Thang, T. T.,
 
-2001. Oligo-Miocene midcrustal subhorizontal shear zone in Indochina. Tectonics 20, 46-57. Jolivet, L., Muluski, H., Beyssac, O., Goffe, B., Lepvrier, C., Tri, P. T., Vuong, N. V.,
+2001. Oligo-Miocene midcrustal subhorizontal shear zone in Indochina. Tectonics
+
+20, 46-57. Jolivet, L., Muluski, H., Beyssac, O., Goffe, B., Lepvrier, C., Tri, P. T., Vuong, N. V.,
 
 1999. Oligo-miocene Bu Khang extensional gneiss dome in Vietnam: Geodynamic implications. Geology 27, 67-70. Koike, T., Kodachi, Y., Matsuno, T., Baba, H., 1991. Triassic conodonts from exotic
 
@@ -273,7 +281,9 @@ accretionary-subduction under medium-pressure type metamorphic conditions. Tecto
 
 fabric: Sedimentary melange of the Yuwan complex, Ryukyu Islands, Japan. Geological Society of America Bulletin 120, 1190-1203. doi: 10.1130/B2638.1 Osozawa, S., Tsai, C.-H., Wakabayashi, J., 2012. Folding of granite and Cretaceous
 
-exhumation associated with regional-scale flexural slip folding and ridge subduction, Kitakami zone, northeast Japan. Journal of Asian Earth Sciences 59, 85-98. doi: 10.1016/j.jseaes.2012.05.023. Osozawa, S., Shinjo,R., Lo, C. -H., Jahn, B. -M., Hoang,N., Sasaki,M., Ishikawa,
+exhumation associated with regional-scale flexural slip folding and ridge subduction, Kitakami zone, northeast Japan. Journal of Asian Earth Sciences 59,
+
+85-98. doi: 10.1016/j.jseaes.2012.05.023. Osozawa, S., Shinjo,R., Lo, C. -H., Jahn, B. -M., Hoang,N., Sasaki,M., Ishikawa,
 
 K., Kano, H., Hoshi, H., Xenophontos, C., and Wakabayashi, J., 2012. Geochemistry and geochronology of the Troodos ophiolite: An SSZ ophiolite 
 generated by subduction initiation and an extended episode of ridge subduction ? Lithosphere, 4, 497-510. doi:10.1130/L205.1 
@@ -286,7 +296,9 @@ continental extrusion of SE Asia. Journal of the Geological Society, London 163,
 
 extrusion tectonics in Asia: new insights from simple experiments with plasticine. Geology 10, 611-616. Usuki, T., Lan, C.Y., Yui, T.F., Iizuka, Y., Vu, V.T., Tran, T.A., Okamoto, K., Wooden,
 
-J.L., Liou, J.G., 2009. Early Paleozoic medium-pressure metamorphism in central Vietnam: evidence from SHRIMP U-Pb zircon ages. Geosciences Journal 13, 245-256. Viola, G., Anczkiewicz, R., 2007. Exhumation history of the Red River shear zone in
+J.L., Liou, J.G., 2009. Early Paleozoic medium-pressure metamorphism in central Vietnam: evidence from SHRIMP U-Pb zircon ages. Geosciences Journal 13,
+
+245-256. Viola, G., Anczkiewicz, R., 2007. Exhumation history of the Red River shear zone in
 
 northern Vietnam: New insights from zircon and apatite fission-track analysis. Journal of Asian Earth Sciences 33, 78-90. doi:10.1016/i.iseaes.2007.08.006. Wakabayashi, J., 2007. Step-overs that migrate with respect to affected deposits: Field
 
@@ -294,13 +306,17 @@ characteristics and speculation on some details of their evolution. In Cunningha
 
 Franciscan Complex, California, at multiple length and time scales. International Geology Review. doi/10.1080/00206814.2014.998728. Wakabayashi, J., Hengesh, J.V., Sawyer, T.L., 2004. Four-dimensional transform fault
 
-processes: progressive evolution of step-overs and bends. Tectonophysics 392, 279-301. Wakita, K., and Metcalfe, I., 2005, Ocean plate stratigraphy in east and southeast Asia.
+processes: progressive evolution of step-overs and bends. Tectonophysics 392,
+
+279-301. Wakita, K., and Metcalfe, I., 2005, Ocean plate stratigraphy in east and southeast Asia.
 
 Journal of Asian Earth Sciences 24, 697-702. Wang, P. L., Lo, C. H., Lee, T. Y., Chung, S. L., Lan, C. Y., Yem N. T., 1998.
 
 Thermochronological evidence for the movement of the Ailao Shan- Red River shear zone: A perspective from Vietnam. Geology 26, 887-890. Wang, P. L., Lo, C. H., Chung, S. L., Lee, T. Y., Lan, C. Y., Thang, T. V., 2000. Onset
 
-timing of left-lateral movement along the Ailiao Shan- Red River Shear Zone: 40Ar/39Ar dating constraint from the Nam Dinh Area, northeastern Vietnam. Journal of Asian Earth Sciences 18, 281-292. Yeh, M. W., Lee, T. Y., Lo, C. H., Chung, S. L., Lan, C. Y., Anh T. T., 2008. Structural
+timing of left-lateral movement along the Ailiao Shan- Red River Shear Zone:
+
+40Ar/39Ar dating constraint from the Nam Dinh Area, northeastern Vietnam. Journal of Asian Earth Sciences 18, 281-292. Yeh, M. W., Lee, T. Y., Lo, C. H., Chung, S. L., Lan, C. Y., Anh T. T., 2008. Structural
 
 evolution of the Dai Nui Con Voi metamorphic complex: Implications on the development of the Red River Shear Zone, Northern Vietnam. Journal of Structural Geology 30, 1540-1553. Zhang, J., Liu, J., Tran, M.D., Nguyen, Q.L., 2014. HP and UHT metamorphic
 
