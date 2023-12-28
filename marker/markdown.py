@@ -98,7 +98,6 @@ def line_separator(
     is_continuation: IsContinuation,
 ):
     lowercase_letters: str = "a-zà-öø-ÿа-яşćăâđêôơưþðæøå"
-    uppercase_letters: str = "A-ZÀ-ÖØ-ßА-ЯŞĆĂÂĐÊÔƠƯÞÐÆØÅ"
 
     # 以任意数量的字符（除换行符外）开始，后跟小写字母范围中的一个字符，然后是短横线（减号）字符，最后是零个或一个空白字符，并且行结尾
     # "a-"：匹配成功，因为以小写字母 "a" 结尾，并以短横线结尾。
@@ -115,6 +114,39 @@ def line_separator(
     # "A"：匹配失败，因为以大写字母 "A" 开头，而模式只匹配小写字母范围中的字符。
     # "123"：匹配失败，因为以数字开头，而不是小写字母。
     hyphen_rear_pattern = re.compile(rf"^[{lowercase_letters}]")
+
+    prev_line_text = prev_line_text.rstrip()
+    new_line_text = new_line_text.lstrip()
+
+    if (
+        prev_line_text
+        and hyphen_front_pattern.match(prev_line_text)
+        and hyphen_rear_pattern.match(new_line_text)
+    ):
+        prev_line_text = re.split(r"[-—]\s?$", prev_line_text)[0]
+        return prev_line_text.rstrip() + new_line_text.lstrip()
+    elif block_type in ["Title", "Section-header"]:
+        return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+    elif is_continuation != IsContinuation.NONE:
+        if is_continuation == IsContinuation.TRUE:
+            return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+        elif is_continuation == IsContinuation.FALSE:
+            return prev_line_text + "\n\n" + new_line_text
+    elif block_type == "Formula":
+        return prev_line_text + " " + new_line_text
+    # 是否换行不取决于是否以 paragraph_end_pattern 结尾，而是：缩进；行间隔增大
+    else:
+        return prev_line_text + " " + new_line_text
+
+
+def line_separator_old(
+    prev_line_text: str,
+    new_line_text: str,
+    block_type: str,
+    is_continuation: IsContinuation,
+):
+    lowercase_letters: str = "a-zà-öø-ÿа-яşćăâđêôơưþðæøå"
+    uppercase_letters: str = "A-ZÀ-ÖØ-ßА-ЯŞĆĂÂĐÊÔƠƯÞÐÆØÅ"
 
     # 以任意数量的字符（除换行符外）开始，后跟小写字母范围中的一个字符或逗号，然后是零个或一个空白字符，并且行结尾。
     # "abc "：匹配成功，因为以小写字母 "c" 结尾，并以空白字符结尾。
@@ -169,52 +201,30 @@ def line_separator(
     # "a sentence."：匹配成功，因为行以小写字母开头。
     not_uppercase_head_pattern = re.compile(rf"^\s?[^{uppercase_letters}]", re.DOTALL)
 
-    prev_line_text = prev_line_text.rstrip()
-    new_line_text = new_line_text.lstrip()
-
     if (
-        prev_line_text
-        and hyphen_front_pattern.match(prev_line_text)
-        and hyphen_rear_pattern.match(new_line_text)
+        line_front_pattern.match(prev_line_text)
+        and line_rear_pattern.match(new_line_text)
+        and block_type == "Text"
     ):
-        prev_line_text = re.split(r"[-—]\s?$", prev_line_text)[0]
-        return prev_line_text.rstrip() + new_line_text.lstrip()
-    elif block_type in ["Title", "Section-header"]:
         return prev_line_text.rstrip() + " " + new_line_text.lstrip()
-    elif is_continuation != IsContinuation.NONE:
-        if is_continuation == IsContinuation.TRUE:
-            return prev_line_text.rstrip() + " " + new_line_text.lstrip()
-        elif is_continuation == IsContinuation.FALSE:
-            return prev_line_text + "\n\n" + new_line_text
-    # elif (
-    #     line_front_pattern.match(prev_line_text)
-    #     and line_rear_pattern.match(new_line_text)
-    #     and block_type == "Text"
-    # ):
-    #     return prev_line_text.rstrip() + " " + new_line_text.lstrip()
-    # elif (
-    #     block_type == "Text"
-    #     and paragraph_end_pattern.match(prev_line_text)
-    #     and uppercase_indent_head_pattern.match(new_line_text)
-    # ):
-    #     return prev_line_text + "\n\n" + new_line_text
-    # elif block_type == "Text" and paragraph_end_pattern.match(prev_line_text):
-    #     return prev_line_text.rstrip() + " " + new_line_text.lstrip()
-    # elif (
-    #     block_type == "Text"
-    #     and paragraph_end_pattern.match(prev_line_text)
-    #     and not_uppercase_head_pattern.match(new_line_text)
-    # ) or (
-    #     block_type == "Text"
-    #     and paragraph_end_pattern.match(prev_line_text)
-    #     and uppercase_head_pattern.match(new_line_text)
-    # ):
-    #     return prev_line_text.rstrip() + " " + new_line_text.lstrip()
-    elif block_type == "Formula":
-        return prev_line_text + " " + new_line_text
-    # 是否换行不取决于是否以 paragraph_end_pattern 结尾，而是：缩进；行间隔增大
-    else:
-        return prev_line_text + " " + new_line_text
+    elif (
+        block_type == "Text"
+        and paragraph_end_pattern.match(prev_line_text)
+        and uppercase_indent_head_pattern.match(new_line_text)
+    ):
+        return prev_line_text + "\n\n" + new_line_text
+    elif block_type == "Text" and paragraph_end_pattern.match(prev_line_text):
+        return prev_line_text.rstrip() + " " + new_line_text.lstrip()
+    elif (
+        block_type == "Text"
+        and paragraph_end_pattern.match(prev_line_text)
+        and not_uppercase_head_pattern.match(new_line_text)
+    ) or (
+        block_type == "Text"
+        and paragraph_end_pattern.match(prev_line_text)
+        and uppercase_head_pattern.match(new_line_text)
+    ):
+        return prev_line_text.rstrip() + " " + new_line_text.lstrip()
 
 
 def block_separator(line1, line2, block_type1, block_type2):
@@ -252,10 +262,6 @@ def merge_lines(blocks, page_blocks: List[Page]):
                 # TODO: 多页时 "\n" 由 Code 部分引入
                 # line.text = line.text.replace("\n", "")
 
-                # 增加两种情况判断
-                # 1. 同一行数据被分成了两个line
-                # 2. gap变大一定是新起段落（new page除外）
-                # 3. 去除原不严谨判断
                 if_update_prev_line: bool = True
                 if prev_line:
                     # Get gap with previous line
@@ -266,7 +272,7 @@ def merge_lines(blocks, page_blocks: List[Page]):
                         # In same line -> IsContinuation.TRUE
                         is_continuation: IsContinuation = IsContinuation.TRUE
                         if_update_prev_line = False
-                    elif line_indent > 10: # TODO 多栏时，这个问题还需要再考虑下
+                    elif line_indent > 10:  # TODO 多栏时，这个问题还需要再考虑下
                         # This line indent is bigger than Prev line 10 -> IsContinuation.FALSE
                         is_continuation: IsContinuation = IsContinuation.FALSE
                     elif prev_line_gap != -1:
