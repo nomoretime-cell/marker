@@ -129,8 +129,8 @@ def line_separator(
         return prev_line_text.rstrip() + new_line_text.lstrip()
     elif block_type in ["Title", "Section-header"]:
         if number_head_pattern.match(new_line_text):
-            return prev_line_text + "\n\n## " + new_line_text    
-        elif not number_head_pattern.match(new_line_text):     
+            return prev_line_text + "\n\n## " + new_line_text
+        elif not number_head_pattern.match(new_line_text):
             return prev_line_text.rstrip() + " " + new_line_text.lstrip()
     elif block_type == "List-item" and number_head_pattern.match(new_line_text):
         return prev_line_text + "\n\n" + new_line_text
@@ -284,7 +284,7 @@ def merge_lines(blocks, page_blocks: List[Page]):
                         is_continuation: IsContinuation = IsContinuation.FALSE
                     elif prev_line_gap != -1:
                         # In different line
-                        if line_gap > (prev_line_gap + 5) and not is_newpage:
+                        if line_gap > (prev_line_gap + 10) and not is_newpage:
                             # Gap is bigger than previous -> IsContinuation.FALSE
                             is_continuation: IsContinuation = IsContinuation.FALSE
                         else:
@@ -322,14 +322,52 @@ def merge_lines(blocks, page_blocks: List[Page]):
     return text_blocks
 
 
+def if_paper(text_blocks) -> (bool, int, bool, int):
+    containAbstract: bool = False
+    indexAbstract: int = -1
+    containRef: bool = False
+    indexRef: int = -1
+    for index, block in enumerate(text_blocks):
+        if (
+            (
+                "Abstract".lower() in block.text.lower()
+                or "Highlights".lower() in block.text.lower()
+            )
+            and block.block_type == "Section-header"
+            and not containAbstract
+        ):
+            containAbstract = True
+            indexAbstract = index
+        if (
+            "References".lower() in block.text.lower()
+            and block.block_type == "Section-header"
+            and not containRef
+        ):
+            containRef = True
+            indexRef = index
+    return containAbstract, indexAbstract, containRef, indexRef
+
+
 def get_full_text(text_blocks):
     full_text = ""
     prev_block = None
-    for block in text_blocks:
+
+    containAbstract, indexAbstract, containRef, indexRef = if_paper(text_blocks)
+
+    for index, block in enumerate(text_blocks):
         if prev_block:
-            full_text += block_separator(
-                prev_block.text, block.text, prev_block.block_type, block.block_type
-            )
+            if containAbstract and containRef:
+                if index >= indexAbstract and index < indexRef:
+                    full_text += block_separator(
+                        prev_block.text,
+                        block.text,
+                        prev_block.block_type,
+                        block.block_type,
+                    )
+            else:
+                full_text += block_separator(
+                    prev_block.text, block.text, prev_block.block_type, block.block_type
+                )
         else:
             full_text += block.text
         prev_block = block
