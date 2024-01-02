@@ -238,6 +238,8 @@ def block_separator(line1, line2, block_type1, block_type2):
     sep = "\n"
     if block_type1 == "Text":
         sep = "\n\n"
+    # if block_type1 == "List-item" and block_type2 == "Text":
+    #     sep = " "
 
     return sep + line2
 
@@ -274,17 +276,22 @@ def merge_lines(blocks, page_blocks: List[Page]):
                     # Get gap with previous line
                     line_gap = abs(line.bbox[3] - prev_line.bbox[3])
                     line_indent = line.bbox[0] - prev_line.bbox[0]
+                    isNewColumn: bool = line_gap > 50
 
                     if line_gap <= 5:
                         # In same line -> IsContinuation.TRUE
                         is_continuation: IsContinuation = IsContinuation.TRUE
                         if_update_prev_line = False
-                    elif line_indent > 10:  # TODO 多栏时，这个问题还需要再考虑下
+                    elif line_indent > 8 and not isNewColumn:  # 考虑多栏情况
                         # This line indent is bigger than Prev line 10 -> IsContinuation.FALSE
                         is_continuation: IsContinuation = IsContinuation.FALSE
                     elif prev_line_gap != -1:
                         # In different line
-                        if line_gap > (prev_line_gap + 10) and not is_newpage:
+                        if (
+                            line_gap > (prev_line_gap + 10)
+                            and not is_newpage
+                            and not isNewColumn
+                        ):
                             # Gap is bigger than previous -> IsContinuation.FALSE
                             is_continuation: IsContinuation = IsContinuation.FALSE
                         else:
