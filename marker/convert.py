@@ -48,7 +48,7 @@ def get_length_of_text(fname: str) -> int:
     if filetype == "other":
         return 0
 
-    doc = pymupdf.open(fname, filetype=filetype)
+    doc = pymupdf.Document(fname, filetype=filetype)
     full_text = ""
     for page in doc:
         full_text += page.get_text("text", sort=True, flags=settings.TEXT_FLAGS)
@@ -82,7 +82,7 @@ def convert_single_pdf(
 
     out_meta["filetype"] = filetype
 
-    doc: pymupdf.Document = pymupdf.open(fname, filetype=filetype)
+    doc: pymupdf.Document = pymupdf.Document(fname, filetype=filetype)
     if filetype != "pdf":
         conv = doc.convert_to_pdf()
         doc = pymupdf.open("pdf", conv)

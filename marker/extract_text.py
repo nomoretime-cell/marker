@@ -39,13 +39,13 @@ def get_single_page_blocks(
     spellchecker: Optional[SpellChecker] = None,
     ocr=False,
 ) -> Tuple[List[Block], int]:
-    page = doc[pnum]
+    page: pymupdf.Page = doc.load_page(pnum)
     rotation = page.rotation
 
     if ocr:
-        blocks = ocr_entire_page(page, tess_lang, spellchecker)
+        blocks: List[Block] = ocr_entire_page(page, tess_lang, spellchecker)
     else:
-        blocks = page.get_text("dict", sort=True, flags=settings.TEXT_FLAGS)["blocks"]
+        blocks: List[Block] = page.get_text("dict", sort=True, flags=settings.TEXT_FLAGS)["blocks"]
 
     page_blocks = []
     span_id = 0

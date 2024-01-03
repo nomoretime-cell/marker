@@ -276,7 +276,7 @@ def merge_lines(blocks, page_blocks: List[Page]):
                     # Get gap with previous line
                     line_gap = abs(line.bbox[3] - prev_line.bbox[3])
                     line_indent = line.bbox[0] - prev_line.bbox[0]
-                    isNewColumn: bool = line_gap > 50
+                    isNewColumn: bool = line_gap > 100
 
                     if line_gap <= 5:
                         # In same line -> IsContinuation.TRUE

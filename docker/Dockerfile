@@ -18,4 +18,5 @@ RUN pip install poetry
 RUN poetry config installer.max-workers 10
 # RUN poetry install --no-root --no-dev
 RUN poetry install --no-interaction --no-ansi -vvv
-CMD ["poetry", "run", "python3", "convert_single.py", "/marker/testfile/vllm.pdf", "/marker/testfile/vllm.md", "--max_pages","100","--parallel_factor","1"]
+
+CMD ["poetry", "run", "python3", "service.py"]
