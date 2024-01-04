@@ -129,9 +129,9 @@ def convert_single_pdf(
     )
 
     # Fix code blocks
-    code_block_count = identify_code_blocks(blocks)
-    out_meta["block_stats"]["code"] = code_block_count
-    indent_blocks(blocks)
+    # code_block_count = identify_code_blocks(blocks)
+    # out_meta["block_stats"]["code"] = code_block_count
+    # indent_blocks(blocks)
 
     # Fix table blocks
     merge_table_blocks(blocks)
