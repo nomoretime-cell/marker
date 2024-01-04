@@ -253,7 +253,7 @@ def merge_lines(blocks, page_blocks: List[Page]):
     block_type = ""
     for page in blocks:
         is_newpage: bool = True
-        for block in page:
+        for block_index, block in enumerate(page):
             block_type = block.most_common_block_type()
             if block_type != prev_type and prev_type:
                 text_blocks.append(
@@ -268,21 +268,28 @@ def merge_lines(blocks, page_blocks: List[Page]):
             for i, line in enumerate(block.lines):
                 if line.text.strip() == "":
                     continue
-                # TODO: 多页时 "\n" 由 Code 部分引入
-                # line.text = line.text.replace("\n", "")
 
                 if_update_prev_line: bool = True
                 if prev_line:
                     # Get gap with previous line
                     line_gap = abs(line.bbox[3] - prev_line.bbox[3])
-                    line_indent = line.bbox[0] - prev_line.bbox[0]
                     isNewColumn: bool = line_gap > 100
+
+                    if not is_newpage and not isNewColumn:
+                        line_indent = line.bbox[0] - prev_line.bbox[0]
+                    else:
+                        blocks_start = []
+                        for b in page[block_index + 1 : block_index + 5]:
+                            if b:
+                                blocks_start.append(b.x_start)
+
+                        line_indent = line.bbox[0] - min(blocks_start)
 
                     if line_gap <= 5:
                         # In same line -> IsContinuation.TRUE
                         is_continuation: IsContinuation = IsContinuation.TRUE
                         if_update_prev_line = False
-                    elif line_indent > 8 and not isNewColumn:  # 考虑多栏情况
+                    elif line_indent > 8:  # 考虑多栏情况
                         # This line indent is bigger than Prev line 10 -> IsContinuation.FALSE
                         is_continuation: IsContinuation = IsContinuation.FALSE
                     elif prev_line_gap != -1:
