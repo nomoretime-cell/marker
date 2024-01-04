@@ -20,11 +20,11 @@ def find_span_type(span, page_blocks):
 class BboxElement(BaseModel):
     bbox: List[float]
 
-    @field_validator('bbox')
+    @field_validator("bbox")
     @classmethod
     def check_4_elements(cls, v: List[float]) -> List[float]:
         if len(v) != 4:
-            raise ValueError('bbox must have 4 elements')
+            raise ValueError("bbox must have 4 elements")
         return v
 
     @property
@@ -59,14 +59,38 @@ class Span(BboxElement):
     color: int
     ascender: Optional[float] = None
     descender: Optional[float] = None
+    size: Optional[float] = None
+    flags: Optional[int] = None
+    origin: Optional[List[float]] = None
+    
     block_type: Optional[str] = None
     selected: bool = True
 
-
-    @field_validator('text')
+    @field_validator("text")
     @classmethod
     def fix_unicode(cls, text: str) -> str:
         return ftfy.fix_text(text)
+
+    def __str__(self):
+        table = [
+            ("span_id", self.span_id),
+            ("size", self.size),
+            ("flags", self.flags),
+            ("text", self.text),
+            ("font", self.font),
+            ("color", self.color),
+            ("origin", self.origin),
+            ("bbox", self.bbox),
+            ("ascender", self.ascender),
+            ("descender", self.descender)
+        ]
+
+        max_length = max(len(field) for field, _ in table)
+        table_str = ""
+        for field, value in table:
+            table_str += f"{field.ljust(max_length)} : {value}\n"
+
+        return f"{table_str}"
 
 
 class Line(BboxElement):
@@ -133,7 +157,7 @@ class Page(BboxElement):
     blocks: List[Block]
     pnum: int
     column_count: Optional[int] = None
-    rotation: Optional[int] = None # Rotation degrees of the page
+    rotation: Optional[int] = None  # Rotation degrees of the page
 
     def get_nonblank_lines(self):
         lines = self.get_all_lines()
@@ -151,7 +175,9 @@ class Page(BboxElement):
 
     def add_block_types(self, page_block_types):
         if len(page_block_types) != len(self.get_all_lines()):
-            print(f"Warning: Number of detected lines {len(page_block_types)} does not match number of lines {len(self.get_all_lines())}")
+            print(
+                f"Warning: Number of detected lines {len(page_block_types)} does not match number of lines {len(self.get_all_lines())}"
+            )
 
         i = 0
         for block in self.blocks:
@@ -180,7 +206,11 @@ class Page(BboxElement):
         return start_counts
 
     def get_min_line_start(self):
-        starts = [l.bbox[0] for l in self.get_nonblank_lines() if l.spans[0].block_type == "Text"]
+        starts = [
+            l.bbox[0]
+            for l in self.get_nonblank_lines()
+            if l.spans[0].block_type == "Text"
+        ]
         if len(starts) == 0:
             raise IndexError("No lines found")
         return min(starts)
@@ -188,6 +218,7 @@ class Page(BboxElement):
     @property
     def prelim_text(self):
         return "\n".join([b.prelim_text for b in self.blocks])
+
 
 class MergedLine(BboxElement):
     text: str

@@ -2,7 +2,7 @@ import fitz as pymupdf
 
 from marker.cleaners.table import merge_table_blocks, create_new_tables
 from marker.debug.data import dump_bbox_debug_data
-from marker.extract_text import get_text_blocks
+from marker.extract_text import get_pages
 from marker.cleaners.headers import filter_header_footer, filter_common_titles
 from marker.cleaners.equations import replace_equations
 from marker.ordering import order_blocks
@@ -87,7 +87,7 @@ def convert_single_pdf(
         conv = doc.convert_to_pdf()
         doc = pymupdf.open("pdf", conv)
 
-    blocks, toc, ocr_stats = get_text_blocks(
+    pages, toc, ocr_stats = get_pages(
         doc,
         tess_lang,
         spell_lang,
@@ -96,9 +96,9 @@ def convert_single_pdf(
     )
 
     out_meta["toc"] = toc
-    out_meta["pages"] = len(blocks)
+    out_meta["pages"] = len(pages)
     out_meta["ocr_stats"] = ocr_stats
-    if len([b for p in blocks for b in p.blocks]) == 0:
+    if len([b for p in pages for b in p.blocks]) == 0:
         print(f"Could not extract any text blocks for {fname}")
         return "", out_meta
 
@@ -107,23 +107,23 @@ def convert_single_pdf(
 
     block_types = detect_document_block_types(
         doc,
-        blocks,
+        pages,
         layoutlm_model,
         batch_size=settings.LAYOUT_BATCH_SIZE * parallel_factor,
     )
 
     # Find headers and footers
-    bad_span_ids = filter_header_footer(blocks)
+    bad_span_ids = filter_header_footer(pages)
     out_meta["block_stats"] = {"header_footer": len(bad_span_ids)}
 
-    annotate_spans(blocks, block_types)
+    annotate_spans(pages, block_types)
 
     # Dump debug data if flags are set
-    dump_bbox_debug_data(doc, blocks)
+    dump_bbox_debug_data(doc, pages)
 
-    blocks = order_blocks(
+    pages = order_blocks(
         doc,
-        blocks,
+        pages,
         order_model,
         batch_size=settings.ORDERER_BATCH_SIZE * parallel_factor,
     )
@@ -134,18 +134,18 @@ def convert_single_pdf(
     # indent_blocks(blocks)
 
     # Fix table blocks
-    merge_table_blocks(blocks)
-    table_count = create_new_tables(blocks)
+    merge_table_blocks(pages)
+    table_count = create_new_tables(pages)
     out_meta["block_stats"]["table"] = table_count
 
-    for page in blocks:
+    for page in pages:
         for block in page.blocks:
             block.filter_spans(bad_span_ids)
             block.filter_bad_span_types()
 
     filtered, eq_stats = replace_equations(
         doc,
-        blocks,
+        pages,
         block_types,
         nougat_model,
         batch_size=settings.NOUGAT_BATCH_SIZE * parallel_factor,

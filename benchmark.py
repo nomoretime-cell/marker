@@ -12,7 +12,7 @@ from marker.ordering import load_ordering_model
 from marker.segmentation import load_layout_model
 from marker.cleaners.equations import load_nougat_model
 from marker.benchmark.scoring import score_text
-from marker.extract_text import naive_get_text
+from marker.extract_text import get_text
 import json
 import os
 import subprocess
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             elif method == "nougat":
                 full_text = nougat_prediction(pdf_filename, batch_size=args.nougat_batch_size)
             elif method == "naive":
-                full_text = naive_get_text(doc)
+                full_text = get_text(doc)
             else:
                 raise ValueError(f"Unknown method {method}")
 

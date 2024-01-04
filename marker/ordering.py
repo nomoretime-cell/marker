@@ -2,9 +2,6 @@ from copy import deepcopy
 from typing import List
 
 import torch
-import sys, os
-
-from marker.extract_text import convert_single_page
 from transformers import LayoutLMv3ForSequenceClassification, LayoutLMv3Processor
 from PIL import Image
 import io

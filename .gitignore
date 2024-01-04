@@ -172,3 +172,4 @@ scripts/install/ghostscript-10.01.2/*
 scripts/install/ghostscript-10.01.2.tar.gz
 testfile/
 model/
+all_spans.txt
