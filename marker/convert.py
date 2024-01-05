@@ -7,13 +7,11 @@ from marker.cleaners.headers import filter_header_footer, filter_common_titles
 from marker.cleaners.equations import replace_equations
 from marker.ordering import order_blocks
 from marker.postprocessors.editor import edit_full_text
-from marker.segmentation import detect_document_block_types
-from marker.cleaners.code import identify_code_blocks, indent_blocks
+from marker.segmentation import get_pages_types
 from marker.cleaners.bullets import replace_bullets
 from marker.markdown import merge_spans, merge_lines, get_full_text
 from marker.schema import Page, BlockType
 from typing import List, Dict, Tuple, Optional
-from copy import deepcopy
 import re
 import magic
 from marker.settings import settings
@@ -37,10 +35,10 @@ def find_filetype(fpath):
         return "other"
 
 
-def annotate_spans(blocks: List[Page], block_types: List[BlockType]):
-    for i, page in enumerate(blocks):
-        page_block_types = block_types[i]
-        page.add_block_types(page_block_types)
+def annotate_spans_type(pages: List[Page], pages_types: List[List[BlockType]]):
+    for i, page in enumerate(pages):
+        page_types = pages_types[i]
+        page.add_types(page_types)
 
 
 def get_length_of_text(fname: str) -> int:
@@ -103,12 +101,12 @@ def convert_single_pdf(
         return "", out_meta
 
     # Unpack models from list
-    nougat_model, layoutlm_model, order_model, edit_model = model_lst
+    nougat_model, segment_model, order_model, edit_model = model_lst
 
-    block_types = detect_document_block_types(
+    pages_types: List[List[BlockType]] = get_pages_types(
         doc,
         pages,
-        layoutlm_model,
+        segment_model,
         batch_size=settings.LAYOUT_BATCH_SIZE * parallel_factor,
     )
 
@@ -116,7 +114,7 @@ def convert_single_pdf(
     bad_span_ids = filter_header_footer(pages)
     out_meta["block_stats"] = {"header_footer": len(bad_span_ids)}
 
-    annotate_spans(pages, block_types)
+    annotate_spans_type(pages, pages_types)
 
     # Dump debug data if flags are set
     dump_bbox_debug_data(doc, pages)
@@ -146,7 +144,7 @@ def convert_single_pdf(
     filtered, eq_stats = replace_equations(
         doc,
         pages,
-        block_types,
+        pages_types,
         nougat_model,
         batch_size=settings.NOUGAT_BATCH_SIZE * parallel_factor,
     )

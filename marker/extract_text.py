@@ -1,5 +1,5 @@
 import os
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union
 
 from spellchecker import SpellChecker
 
@@ -52,9 +52,9 @@ def get_blocks(
     rotation = page.rotation
 
     if ocr:
-        blocks: List[Block] = ocr_entire_page(page, tess_lang, spellchecker)
+        blocks = ocr_entire_page(page, tess_lang, spellchecker)
     else:
-        blocks: List[Block] = page.get_text(
+        blocks = page.get_text(
             "dict", sort=True, flags=settings.TEXT_FLAGS
         )["blocks"]
 
@@ -157,7 +157,7 @@ def get_pages(
     spell_lang: Optional[str],
     max_pages: Optional[int] = None,
     parallel: int = settings.OCR_PARALLEL_WORKERS,
-):
+) -> Tuple[List[Page], List[Union[int, str, int]], dict]:
     pages: List[Page] = []
     all_spans: List[Span] = []
 

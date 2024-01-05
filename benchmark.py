@@ -8,9 +8,6 @@ from tqdm import tqdm
 from marker.convert import convert_single_pdf
 from marker.logger import configure_logging
 from marker.models import load_all_models
-from marker.ordering import load_ordering_model
-from marker.segmentation import load_layout_model
-from marker.cleaners.equations import load_nougat_model
 from marker.benchmark.scoring import score_text
 from marker.extract_text import get_text
 import json

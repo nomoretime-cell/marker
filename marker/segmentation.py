@@ -23,7 +23,7 @@ CHUNK_KEYS = ["input_ids", "attention_mask", "bbox", "offset_mapping"]
 NO_CHUNK_KEYS = ["pixel_values"]
 
 
-def load_layout_model():
+def load_segment_model():
     model = LayoutLMv3ForTokenClassification.from_pretrained(
         settings.LAYOUT_MODEL_NAME,
         torch_dtype=settings.MODEL_DTYPE,
@@ -47,10 +47,10 @@ def load_layout_model():
     return model
 
 
-def detect_document_block_types(doc, blocks: List[Page], layoutlm_model, batch_size=settings.LAYOUT_BATCH_SIZE):
+def get_pages_types(doc, blocks: List[Page], segment_model, batch_size=settings.LAYOUT_BATCH_SIZE):
     encodings, metadata, sample_lengths = get_features(doc, blocks)
-    predictions = predict_block_types(encodings, layoutlm_model, batch_size)
-    block_types = match_predictions_to_boxes(encodings, predictions, metadata, sample_lengths, layoutlm_model)
+    predictions = predict_block_types(encodings, segment_model, batch_size)
+    block_types = match_predictions_to_boxes(encodings, predictions, metadata, sample_lengths, segment_model)
     assert len(block_types) == len(blocks)
     return block_types
 
@@ -164,7 +164,7 @@ def get_features(doc, blocks):
     return encodings, metadata, sample_lengths
 
 
-def predict_block_types(encodings, layoutlm_model, batch_size):
+def predict_block_types(encodings, segment_model, batch_size):
     all_predictions = []
     for i in range(0, len(encodings), batch_size):
         batch_start = i
@@ -179,7 +179,7 @@ def predict_block_types(encodings, layoutlm_model, batch_size):
             model_in["pixel_values"] = model_in["pixel_values"].to(torch.bfloat16)
 
         with torch.inference_mode():
-            outputs = layoutlm_model(**model_in)
+            outputs = segment_model(**model_in)
             logits = outputs.logits
 
         predictions = logits.argmax(-1).squeeze().tolist()
@@ -189,7 +189,7 @@ def predict_block_types(encodings, layoutlm_model, batch_size):
     return all_predictions
 
 
-def match_predictions_to_boxes(encodings, predictions, metadata, sample_lengths, layoutlm_model) -> List[List[BlockType]]:
+def match_predictions_to_boxes(encodings, predictions, metadata, sample_lengths, segment_model) -> List[List[BlockType]]:
     assert len(encodings) == len(predictions) == sum(sample_lengths)
     assert len(metadata) == len(sample_lengths)
 
@@ -229,7 +229,7 @@ def match_predictions_to_boxes(encodings, predictions, metadata, sample_lengths,
                 if prov_box == [0, 0, 0, 0]:
                     continue
                 block_type = BlockType(
-                    block_type=layoutlm_model.config.id2label[prov_prediction],
+                    block_type=segment_model.config.id2label[prov_prediction],
                     bbox=prov_box
                 )
 

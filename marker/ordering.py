@@ -5,6 +5,7 @@ import torch
 from transformers import LayoutLMv3ForSequenceClassification, LayoutLMv3Processor
 from PIL import Image
 import io
+import fitz as pymupdf
 
 from marker.schema import Page
 from marker.settings import settings
@@ -21,17 +22,17 @@ def load_ordering_model():
     return model
 
 
-def get_inference_data(page, page_blocks: Page):
-    bboxes = deepcopy([block.bbox for block in page_blocks.blocks])
+def get_inference_data(doc_page: pymupdf.Page, inner_page: Page):
+    bboxes = deepcopy([block.bbox for block in inner_page.blocks])
     words = ["."] * len(bboxes)
 
-    pix = page.get_pixmap(dpi=settings.LAYOUT_DPI, annots=False, clip=page_blocks.bbox)
+    pix = doc_page.get_pixmap(dpi=settings.LAYOUT_DPI, annots=False, clip=inner_page.bbox)
     png = pix.pil_tobytes(format="PNG")
     rgb_image = Image.open(io.BytesIO(png)).convert("RGB")
 
-    page_box = page_blocks.bbox
-    pwidth = page_blocks.width
-    pheight = page_blocks.height
+    page_box = inner_page.bbox
+    pwidth = inner_page.width
+    pheight = inner_page.height
 
     for box in bboxes:
         if box[0] < page_box[0]:
@@ -78,40 +79,40 @@ def batch_inference(rgb_images, bboxes, words, model):
     return predictions
 
 
-def add_column_counts(doc, doc_blocks, model, batch_size):
-    for i in range(0, len(doc_blocks), batch_size):
-        batch = range(i, min(i + batch_size, len(doc_blocks)))
+def update_column_counts(doc, inner_pages, model, batch_size):
+    for i in range(0, len(inner_pages), batch_size):
+        page_batch = range(i, min(i + batch_size, len(inner_pages)))
         rgb_images = []
         bboxes = []
         words = []
-        for pnum in batch:
-            page = doc[pnum]
-            rgb_image, page_bboxes, page_words = get_inference_data(page, doc_blocks[pnum])
+        for pnum in page_batch:
+            doc_page = doc[pnum]
+            rgb_image, page_bboxes, page_words = get_inference_data(doc_page, inner_pages[pnum])
             rgb_images.append(rgb_image)
             bboxes.append(page_bboxes)
             words.append(page_words)
 
         predictions = batch_inference(rgb_images, bboxes, words, model)
-        for pnum, prediction in zip(batch, predictions):
-            doc_blocks[pnum].column_count = prediction
+        for pnum, prediction in zip(page_batch, predictions):
+            inner_pages[pnum].column_count = prediction
 
 
-def order_blocks(doc, doc_blocks: List[Page], model, batch_size=settings.ORDERER_BATCH_SIZE):
-    add_column_counts(doc, doc_blocks, model, batch_size)
+def order_blocks(doc: pymupdf.Document, inner_pages: List[Page], model, batch_size=settings.ORDERER_BATCH_SIZE):
+    update_column_counts(doc, inner_pages, model, batch_size)
 
-    for page_blocks in doc_blocks:
-        if page_blocks.column_count > 1:
+    for inner_page in inner_pages:
+        if inner_page.column_count > 1:
             # Resort blocks based on position
-            split_pos = page_blocks.x_start + page_blocks.width / 2
+            split_pos = inner_page.x_start + inner_page.width / 2
             left_blocks = []
             right_blocks = []
-            for block in page_blocks.blocks:
+            for block in inner_page.blocks:
                 if block.x_start <= split_pos:
                     left_blocks.append(block)
                 else:
                     right_blocks.append(block)
-            page_blocks.blocks = left_blocks + right_blocks
-    return doc_blocks
+            inner_page.blocks = left_blocks + right_blocks
+    return inner_pages
 
 
 

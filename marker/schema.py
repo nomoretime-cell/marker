@@ -173,22 +173,23 @@ class Page(BboxElement):
         spans = [s for l in lines for s in l.spans if s.text.strip()]
         return spans
 
-    def add_block_types(self, page_block_types):
-        if len(page_block_types) != len(self.get_all_lines()):
+    def add_types(self, page_types):
+        if len(page_types) != len(self.get_all_lines()):
             print(
-                f"Warning: Number of detected lines {len(page_block_types)} does not match number of lines {len(self.get_all_lines())}"
+                f"Warning: Number of detected lines {len(page_types)} does not match number of lines {len(self.get_all_lines())}"
             )
 
         i = 0
         for block in self.blocks:
             for line in block.lines:
-                if i < len(page_block_types):
-                    line_block_type = page_block_types[i].block_type
+                if i < len(page_types):
+                    line_type = page_types[i].block_type
                 else:
-                    line_block_type = "Text"
+                    # TODO: Exception
+                    line_type = "Text"
                 i += 1
                 for span in line.spans:
-                    span.block_type = line_block_type
+                    span.block_type = line_type
 
     def get_font_stats(self):
         fonts = [s.font for s in self.get_nonblank_spans()]
