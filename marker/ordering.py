@@ -103,15 +103,17 @@ def order_blocks(doc: pymupdf.Document, inner_pages: List[Page], model, batch_si
     for inner_page in inner_pages:
         if inner_page.column_count > 1:
             # Resort blocks based on position
-            split_pos = inner_page.x_start + inner_page.width / 2
-            left_blocks = []
-            right_blocks = []
+            columns = [[] for _ in range(inner_page.column_count)]
+            split_pos = inner_page.x_start + inner_page.width / inner_page.column_count
+
             for block in inner_page.blocks:
-                if block.x_start <= split_pos:
-                    left_blocks.append(block)
-                else:
-                    right_blocks.append(block)
-            inner_page.blocks = left_blocks + right_blocks
+                for i in range(inner_page.column_count):
+                    if block.x_start <= split_pos * (i + 1):
+                        columns[i].append(block)
+                        break
+
+            inner_page.blocks = [block for column in columns for block in column]
+
     return inner_pages
 
 
