@@ -26,7 +26,9 @@ def get_inference_data(doc_page: pymupdf.Page, inner_page: Page):
     bboxes = deepcopy([block.bbox for block in inner_page.blocks])
     words = ["."] * len(bboxes)
 
-    pix = doc_page.get_pixmap(dpi=settings.LAYOUT_DPI, annots=False, clip=inner_page.bbox)
+    pix = doc_page.get_pixmap(
+        dpi=settings.LAYOUT_DPI, annots=False, clip=inner_page.bbox
+    )
     png = pix.pil_tobytes(format="PNG")
     rgb_image = Image.open(io.BytesIO(png)).convert("RGB")
 
@@ -60,7 +62,7 @@ def batch_inference(rgb_images, bboxes, words, model):
         return_tensors="pt",
         truncation=True,
         padding="max_length",
-        max_length=128
+        max_length=128,
     )
 
     if settings.CUDA:
@@ -87,7 +89,9 @@ def update_column_counts(doc, inner_pages, model, batch_size):
         words = []
         for pnum in page_batch:
             doc_page = doc[pnum]
-            rgb_image, page_bboxes, page_words = get_inference_data(doc_page, inner_pages[pnum])
+            rgb_image, page_bboxes, page_words = get_inference_data(
+                doc_page, inner_pages[pnum]
+            )
             rgb_images.append(rgb_image)
             bboxes.append(page_bboxes)
             words.append(page_words)
@@ -97,7 +101,12 @@ def update_column_counts(doc, inner_pages, model, batch_size):
             inner_pages[pnum].column_count = prediction
 
 
-def order_blocks(doc: pymupdf.Document, inner_pages: List[Page], model, batch_size=settings.ORDERER_BATCH_SIZE):
+def order_blocks(
+    doc: pymupdf.Document,
+    inner_pages: List[Page],
+    model,
+    batch_size=settings.ORDERER_BATCH_SIZE,
+) -> List[Page]:
     update_column_counts(doc, inner_pages, model, batch_size)
 
     for inner_page in inner_pages:
@@ -115,6 +124,3 @@ def order_blocks(doc: pymupdf.Document, inner_pages: List[Page], model, batch_si
             inner_page.blocks = [block for column in columns for block in column]
 
     return inner_pages
-
-
-

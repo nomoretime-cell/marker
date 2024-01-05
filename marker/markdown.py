@@ -19,62 +19,6 @@ def surround_text(s, char_to_insert):
     return final_string
 
 
-def merge_spans(blocks):
-    merged_blocks = []
-    for page in blocks:
-        page_blocks = []
-        for blocknum, block in enumerate(page.blocks):
-            block_lines = []
-            block_types = []
-            for linenum, line in enumerate(block.lines):
-                line_text = ""
-                if len(line.spans) == 0:
-                    continue
-                fonts = []
-                for i, span in enumerate(line.spans):
-                    font = span.font.lower()
-                    next_font = None
-                    next_idx = 1
-                    while len(line.spans) > i + next_idx:
-                        next_span = line.spans[i + next_idx]
-                        next_font = next_span.font.lower()
-                        next_idx += 1
-                        if len(next_span.text.strip()) > 2:
-                            break
-
-                    fonts.append(font)
-                    block_types.append(span.block_type)
-                    span_text = span.text
-
-                    # Don't bold or italicize very short sequences
-                    # Avoid bolding first and last sequence so lines can be joined properly
-                    if len(span_text) > 3 and 0 < i < len(line.spans) - 1:
-                        if "ital" in font and (
-                            not next_font or "ital" not in next_font
-                        ):
-                            span_text = surround_text(span_text, "*")
-                        elif "bold" in font and (
-                            not next_font or "bold" not in next_font
-                        ):
-                            span_text = surround_text(span_text, "**")
-                    line_text += span_text
-                block_lines.append(
-                    MergedLine(text=line_text, fonts=fonts, bbox=line.bbox)
-                )
-            if len(block_lines) > 0:
-                page_blocks.append(
-                    MergedBlock(
-                        lines=block_lines,
-                        pnum=block.pnum,
-                        bbox=block.bbox,
-                        block_types=block_types,
-                    )
-                )
-        merged_blocks.append(page_blocks)
-
-    return merged_blocks
-
-
 def block_surround(text, block_type):
     if block_type == "Section-header":
         if not text.startswith("#"):
@@ -244,7 +188,91 @@ def block_separator(line1, line2, block_type1, block_type2):
     return sep + line2
 
 
-def merge_lines(blocks, page_blocks: List[Page]):
+def if_paper(text_blocks) -> (bool, int, bool, int):
+    containAbstract: bool = False
+    indexAbstract: int = -1
+    containRef: bool = False
+    indexRef: int = -1
+    for index, block in enumerate(text_blocks):
+        if (
+            (
+                "Abstract".lower() in block.text.lower()
+                or "Highlights".lower() in block.text.lower()
+            )
+            and block.block_type == "Section-header"
+            and not containAbstract
+        ):
+            containAbstract = True
+            indexAbstract = index
+        if (
+            "References".lower() in block.text.lower()
+            and block.block_type == "Section-header"
+            and not containRef
+        ):
+            containRef = True
+            indexRef = index
+    return containAbstract, indexAbstract, containRef, indexRef
+
+
+def merge_spans(pages: List[Page]) -> List[List[MergedBlock]]:
+    merged_blocks: List[List[MergedBlock]] = []
+    for page in pages:
+        page_blocks: List[MergedBlock] = []
+        for blocknum, block in enumerate(page.blocks):
+            block_lines = []
+            block_types = []
+            for linenum, line in enumerate(block.lines):
+                line_text = ""
+                if len(line.spans) == 0:
+                    continue
+                fonts = []
+                for i, span in enumerate(line.spans):
+                    font = span.font.lower()
+                    next_font = None
+                    next_idx = 1
+                    while len(line.spans) > i + next_idx:
+                        next_span = line.spans[i + next_idx]
+                        next_font = next_span.font.lower()
+                        next_idx += 1
+                        if len(next_span.text.strip()) > 2:
+                            break
+
+                    fonts.append(font)
+                    block_types.append(span.block_type)
+                    span_text = span.text
+
+                    # Don't bold or italicize very short sequences
+                    # Avoid bolding first and last sequence so lines can be joined properly
+                    if len(span_text) > 3 and 0 < i < len(line.spans) - 1:
+                        if "ital" in font and (
+                            not next_font or "ital" not in next_font
+                        ):
+                            span_text = surround_text(span_text, "*")
+                        elif "bold" in font and (
+                            not next_font or "bold" not in next_font
+                        ):
+                            span_text = surround_text(span_text, "**")
+                    line_text += span_text
+                block_lines.append(
+                    MergedLine(text=line_text, fonts=fonts, bbox=line.bbox)
+                )
+            if len(block_lines) > 0:
+                page_blocks.append(
+                    MergedBlock(
+                        lines=block_lines,
+                        pnum=block.pnum,
+                        bbox=block.bbox,
+                        block_types=block_types,
+                    )
+                )
+        merged_blocks.append(page_blocks)
+
+    return merged_blocks
+
+
+def merge_lines(
+    blocks: List[List[MergedBlock]], pages: List[Page]
+) -> List[FullyMergedBlock]:
     text_blocks = []
     prev_type = None
     prev_line = None
@@ -336,33 +364,7 @@ def merge_lines(blocks, page_blocks: List[Page]):
     return text_blocks
 
 
-def if_paper(text_blocks) -> (bool, int, bool, int):
-    containAbstract: bool = False
-    indexAbstract: int = -1
-    containRef: bool = False
-    indexRef: int = -1
-    for index, block in enumerate(text_blocks):
-        if (
-            (
-                "Abstract".lower() in block.text.lower()
-                or "Highlights".lower() in block.text.lower()
-            )
-            and block.block_type == "Section-header"
-            and not containAbstract
-        ):
-            containAbstract = True
-            indexAbstract = index
-        if (
-            "References".lower() in block.text.lower()
-            and block.block_type == "Section-header"
-            and not containRef
-        ):
-            containRef = True
-            indexRef = index
-    return containAbstract, indexAbstract, containRef, indexRef
-
-
-def get_full_text(text_blocks):
+def get_string(text_blocks: List[FullyMergedBlock]) -> str:
     full_text = ""
     prev_block = None
 

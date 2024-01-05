@@ -9,8 +9,8 @@ from marker.ordering import order_blocks
 from marker.postprocessors.editor import edit_full_text
 from marker.segmentation import get_pages_types
 from marker.cleaners.bullets import replace_bullets
-from marker.markdown import merge_spans, merge_lines, get_full_text
-from marker.schema import Page, BlockType
+from marker.markdown import merge_spans, merge_lines, get_string
+from marker.schema import Page, BlockType, MergedBlock, FullyMergedBlock
 from typing import List, Dict, Tuple, Optional
 import re
 import magic
@@ -111,7 +111,7 @@ def convert_single_pdf(
     )
 
     # Find headers and footers
-    bad_span_ids = filter_header_footer(pages)
+    bad_span_ids: List[int] = filter_header_footer(pages)
     out_meta["block_stats"] = {"header_footer": len(bad_span_ids)}
 
     annotate_spans_type(pages, pages_types)
@@ -141,7 +141,7 @@ def convert_single_pdf(
             block.filter_spans(bad_span_ids)
             block.filter_bad_span_types()
 
-    filtered, eq_stats = replace_equations(
+    pages, eq_stats = replace_equations(
         doc,
         pages,
         pages_types,
@@ -151,22 +151,22 @@ def convert_single_pdf(
     out_meta["block_stats"]["equations"] = eq_stats
 
     # Copy to avoid changing original data
-    merged_lines = merge_spans(filtered)
-    text_blocks = merge_lines(merged_lines, filtered)
-    text_blocks = filter_common_titles(text_blocks)
-    full_text = get_full_text(text_blocks)
+    merged_pages: List[List[MergedBlock]] = merge_spans(pages)
+    merged_blocks: List[FullyMergedBlock] = merge_lines(merged_pages, pages)
+    merged_blocks = filter_common_titles(merged_blocks)
+    pages_string: str = get_string(merged_blocks)
 
     # Handle empty blocks being joined
-    full_text = re.sub(r"\n{3,}", "\n\n", full_text)
-    full_text = re.sub(r"(\n\s){3,}", "\n\n", full_text)
+    pages_string = re.sub(r"\n{3,}", "\n\n", pages_string)
+    pages_string = re.sub(r"(\n\s){3,}", "\n\n", pages_string)
 
     # Replace bullet characters with a -
-    full_text = replace_bullets(full_text)
+    pages_string = replace_bullets(pages_string)
 
     # Postprocess text with editor model
-    full_text, edit_stats = edit_full_text(
-        full_text, edit_model, batch_size=settings.EDITOR_BATCH_SIZE * parallel_factor
+    pages_string, edit_stats = edit_full_text(
+        pages_string, edit_model, batch_size=settings.EDITOR_BATCH_SIZE * parallel_factor
     )
     out_meta["postprocess_stats"] = {"edit": edit_stats}
 
-    return full_text, out_meta
+    return pages_string, out_meta

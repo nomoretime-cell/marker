@@ -159,7 +159,7 @@ class Page(BboxElement):
     column_count: Optional[int] = None
     rotation: Optional[int] = None  # Rotation degrees of the page
 
-    def get_nonblank_lines(self):
+    def get_nonblank_lines(self) -> List[Line]:
         lines = self.get_all_lines()
         nonblank_lines = [l for l in lines if l.prelim_text.strip()]
         return nonblank_lines
