@@ -10,7 +10,7 @@ from marker.postprocessors.editor import edit_full_text
 from marker.segmentation import get_pages_types
 from marker.cleaners.bullets import replace_bullets
 from marker.markdown import merge_spans, merge_lines, get_string
-from marker.schema import Page, BlockType, MergedBlock, FullyMergedBlock
+from marker.schema import Page, BlockType, MergedBlock, FullyMergedBlock, Span
 from typing import List, Dict, Tuple, Optional
 import re
 import magic
@@ -53,6 +53,16 @@ def get_length_of_text(fname: str) -> int:
 
     return len(full_text)
 
+def save_all_spans(pages: List[Page]) -> None:
+    spans: List[Span] = []
+    for page in pages:
+        for block in page.blocks:
+            for line in block.lines:
+                for span in line.spans:
+                    spans.append(span)
+    with open("all_spans_type.txt", "w") as file:
+        for span in spans:
+            file.write(str(span) + "\n")
 
 def convert_single_pdf(
     fname: str,
@@ -116,6 +126,8 @@ def convert_single_pdf(
 
     annotate_spans_type(pages, pages_types)
 
+    save_all_spans(pages)
+
     # Dump debug data if flags are set
     dump_bbox_debug_data(doc, pages)
 
@@ -165,7 +177,9 @@ def convert_single_pdf(
 
     # Postprocess text with editor model
     pages_string, edit_stats = edit_full_text(
-        pages_string, edit_model, batch_size=settings.EDITOR_BATCH_SIZE * parallel_factor
+        pages_string,
+        edit_model,
+        batch_size=settings.EDITOR_BATCH_SIZE * parallel_factor,
     )
     out_meta["postprocess_stats"] = {"edit": edit_stats}
 

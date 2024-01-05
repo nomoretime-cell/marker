@@ -218,20 +218,20 @@ def merge_spans(pages: List[Page]) -> List[List[MergedBlock]]:
     merged_blocks: List[List[MergedBlock]] = []
     for page in pages:
         page_blocks: List[MergedBlock] = []
-        for blocknum, block in enumerate(page.blocks):
+        for block_index, block in enumerate(page.blocks):
             block_lines = []
             block_types = []
-            for linenum, line in enumerate(block.lines):
+            for line_index, line in enumerate(block.lines):
                 line_text = ""
                 if len(line.spans) == 0:
                     continue
                 fonts = []
-                for i, span in enumerate(line.spans):
+                for span_index, span in enumerate(line.spans):
                     font = span.font.lower()
                     next_font = None
                     next_idx = 1
-                    while len(line.spans) > i + next_idx:
-                        next_span = line.spans[i + next_idx]
+                    while len(line.spans) > span_index + next_idx:
+                        next_span = line.spans[span_index + next_idx]
                         next_font = next_span.font.lower()
                         next_idx += 1
                         if len(next_span.text.strip()) > 2:
@@ -243,7 +243,7 @@ def merge_spans(pages: List[Page]) -> List[List[MergedBlock]]:
 
                     # Don't bold or italicize very short sequences
                     # Avoid bolding first and last sequence so lines can be joined properly
-                    if len(span_text) > 3 and 0 < i < len(line.spans) - 1:
+                    if len(span_text) > 3 and 0 < span_index < len(line.spans) - 1:
                         if "ital" in font and (
                             not next_font or "ital" not in next_font
                         ):

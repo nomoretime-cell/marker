@@ -59,7 +59,7 @@ class Span(BboxElement):
     color: int
     ascender: Optional[float] = None
     descender: Optional[float] = None
-    size: Optional[float] = None
+    size: Optional[int] = None
     flags: Optional[int] = None
     origin: Optional[List[float]] = None
     
@@ -75,6 +75,7 @@ class Span(BboxElement):
         table = [
             ("span_id", self.span_id),
             ("size", self.size),
+            ("type", self.block_type),
             ("flags", self.flags),
             ("text", self.text),
             ("font", self.font),

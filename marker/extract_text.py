@@ -44,7 +44,6 @@ def get_blocks(
     doc: pymupdf.Document,
     pnum: int,
     tess_lang: str,
-    all_spans: List[Span],
     spellchecker: Optional[SpellChecker] = None,
     ocr=False,
 ) -> Tuple[List[Block], int]:
@@ -77,10 +76,9 @@ def get_blocks(
                     descender=s["descender"],
                     flags=s["flags"],
                     origin=s["origin"],
-                    size=s["size"],
+                    size=round(s["size"]),
                 )
                 spans.append(span_obj)
-                all_spans.append(span_obj)
                 span_id += 1
             line_obj = Line(
                 spans=spans,
@@ -108,7 +106,6 @@ def get_page(
     tess_lang: str,
     spell_lang: Optional[str],
     no_text: bool,
-    all_spans: List[Span],
     disable_ocr: bool = False,
     min_ocr_page: int = 2,
 ):
@@ -118,7 +115,7 @@ def get_page(
 
     spellchecker = SpellChecker(language=spell_lang) if spell_lang else None
 
-    blocks = get_blocks(doc, pnum, tess_lang, all_spans, spellchecker)
+    blocks = get_blocks(doc, pnum, tess_lang, spellchecker)
     page = Page(blocks=blocks, pnum=pnum, bbox=doc[pnum].bound())
 
     # OCR page if we got minimal text, or if we got too many spaces
@@ -159,8 +156,6 @@ def get_pages(
     parallel: int = settings.OCR_PARALLEL_WORKERS,
 ) -> Tuple[List[Page], List[Union[int, str, int]], dict]:
     pages: List[Page] = []
-    all_spans: List[Span] = []
-
     ocr_pages = 0
     ocr_failed = 0
     ocr_success = 0
@@ -170,7 +165,7 @@ def get_pages(
 
     with ThreadPoolExecutor(max_workers=parallel) as pool:
         args_list = [
-            (doc, pnum, tess_lang, spell_lang, if_no_text, all_spans)
+            (doc, pnum, tess_lang, spell_lang, if_no_text)
             for pnum in range(process_pages)
         ]
         if parallel == 1:
@@ -186,9 +181,6 @@ def get_pages(
             ocr_failed += ocr_stats["ocr_failed"]
             ocr_success += ocr_stats["ocr_success"]
 
-    with open("all_spans.txt", "w") as file:
-        for span in all_spans:
-            file.write(str(span) + "\n")
     return (
         pages,
         doc.get_toc(),
