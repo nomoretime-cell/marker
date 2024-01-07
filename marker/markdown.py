@@ -19,6 +19,10 @@ def surround_text(s, char_to_insert):
     return final_string
 
 
+def set_front(s, front, rear):
+    return front + s.strip() + rear
+
+
 def block_surround(text, block_type):
     if block_type == "Section-header":
         if not text.startswith("#"):
@@ -243,15 +247,25 @@ def merge_spans(pages: List[Page]) -> List[List[MergedBlock]]:
 
                     # Don't bold or italicize very short sequences
                     # Avoid bolding first and last sequence so lines can be joined properly
-                    if len(span_text) > 3 and 0 < span_index < len(line.spans) - 1:
-                        if "ital" in font and (
-                            not next_font or "ital" not in next_font
-                        ):
-                            span_text = surround_text(span_text, "*")
-                        elif "bold" in font and (
-                            not next_font or "bold" not in next_font
-                        ):
-                            span_text = surround_text(span_text, "**")
+                    # if len(span_text) > 3 and 0 < span_index < len(line.spans) - 1:
+                    #     if "ital" in font and (
+                    #         not next_font or "ital" not in next_font
+                    #     ):
+                    #         span_text = surround_text(span_text, "*")
+                    #     elif "bold" in font and (
+                    #         not next_font or "bold" not in next_font
+                    #     ):
+                    #         span_text = surround_text(span_text, "**")
+
+                    if (
+                        span.flags is not None
+                        and span.flags & 2**0
+                        and span.size < page.text_font
+                    ):
+                        span_text = set_front(span_text, "<sup>", "</sup>")
+                    elif span.size is not None and span.size < page.text_font:
+                        span_text = set_front(span_text, "<sub>", "</sub>")
+
                     line_text += span_text
                 block_lines.append(
                     MergedLine(text=line_text, fonts=fonts, bbox=line.bbox)

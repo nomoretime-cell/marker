@@ -157,6 +157,7 @@ class Block(BboxElement):
 class Page(BboxElement):
     blocks: List[Block]
     pnum: int
+    text_font: Optional[int] = None
     column_count: Optional[int] = None
     rotation: Optional[int] = None  # Rotation degrees of the page
 

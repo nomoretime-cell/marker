@@ -1,4 +1,5 @@
 import fitz as pymupdf
+from marker.analyzer.spans import SpanType, SpansAnalyzer
 
 from marker.cleaners.table import merge_table_blocks, create_new_tables
 from marker.debug.data import dump_bbox_debug_data
@@ -53,16 +54,18 @@ def get_length_of_text(fname: str) -> int:
 
     return len(full_text)
 
-def save_all_spans(pages: List[Page]) -> None:
+def get_all_spans(pages: List[Page]) -> List[Span]:
     spans: List[Span] = []
     for page in pages:
         for block in page.blocks:
             for line in block.lines:
                 for span in line.spans:
                     spans.append(span)
+    # FOR DEBUG
     with open("all_spans_type.txt", "w") as file:
         for span in spans:
             file.write(str(span) + "\n")
+    return spans
 
 def convert_single_pdf(
     fname: str,
@@ -126,7 +129,12 @@ def convert_single_pdf(
 
     annotate_spans_type(pages, pages_types)
 
-    save_all_spans(pages)
+    # Get text font size
+    spans: List[Span] = get_all_spans(pages)
+    sa = SpansAnalyzer(spans)
+    if len(sa.type2fontSize[SpanType.Text.value]) > 0:
+        for page in pages:
+            page.text_font = sa.type2fontSize[SpanType.Text.value][0].font_size
 
     # Dump debug data if flags are set
     dump_bbox_debug_data(doc, pages)
