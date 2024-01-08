@@ -232,13 +232,21 @@ def merge_spans(pages: List[Page]) -> List[List[MergedBlock]]:
                 fonts = []
                 for span_index, span in enumerate(line.spans):
                     font = span.font.lower()
+                    surround_span = None
                     next_font = None
                     next_idx = 1
                     while len(line.spans) > span_index + next_idx:
-                        next_span = line.spans[span_index + next_idx]
-                        next_font = next_span.font.lower()
+                        surround_span = line.spans[span_index + next_idx]
+                        next_font = surround_span.font.lower()
                         next_idx += 1
-                        if len(next_span.text.strip()) > 2:
+                        if len(surround_span.text.strip()) > 2:
+                            break
+
+                    next_idx = 1
+                    while surround_span is None and span_index - next_idx >= 0:
+                        surround_span = line.spans[span_index - next_idx]
+                        next_idx += 1
+                        if len(surround_span.text.strip()) > 2:
                             break
 
                     fonts.append(font)
@@ -263,8 +271,16 @@ def merge_spans(pages: List[Page]) -> List[List[MergedBlock]]:
                         and span.size < page.text_font
                     ):
                         span_text = set_front(span_text, "<sup>", "</sup>")
-                    elif span.size is not None and span.size < page.text_font:
-                        span_text = set_front(span_text, "<sub>", "</sub>")
+                    elif (
+                        span.size is not None
+                        and surround_span is not None
+                        and surround_span.origin is not None
+                        and span.size < page.text_font
+                    ):
+                        if abs(surround_span.origin[1] - span.origin[1]) < 2:
+                            span_text = set_front(span_text, "<sub>", "</sub>")
+                        else:
+                            span_text = set_front(span_text, "<sup>", "</sup>")
 
                     line_text += span_text
                 block_lines.append(

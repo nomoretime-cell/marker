@@ -327,9 +327,7 @@ def replace_equations(
     for page_idx, reformat_regions_page in enumerate(reformat_regions):
         page_obj = doc[page_idx]
         for reformat_region in reformat_regions_page:
-            bboxes, merged_box = get_bboxes_for_region(
-                pages[page_idx], reformat_region
-            )
+            bboxes, merged_box = get_bboxes_for_region(pages[page_idx], reformat_region)
             png_image = get_nougat_image(page_obj, merged_box, bboxes)
             images.append(png_image)
             merged_boxes.append(merged_box)
