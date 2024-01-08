@@ -134,9 +134,11 @@ def get_total_nougat_tokens(text, nougat_model):
     return len(tokens["input_ids"])
 
 
-def find_page_equation_regions(pnum, page, block_types, nougat_model):
+def find_page_equation_regions(
+    page: Page, page_types: List[BlockType], nougat_model
+):
     i = 0
-    equation_boxes = [b.bbox for b in block_types[pnum] if b.block_type == "Formula"]
+    equation_boxes = [b.bbox for b in page_types if b.block_type == "Formula"]
     reformatted_blocks = set()
     reformat_regions = []
     block_lens = []
@@ -299,7 +301,7 @@ def replace_blocks_with_nougat_predictions(
 def replace_equations(
     doc,
     pages: List[Page],
-    block_types: List[List[BlockType]],
+    pages_types: List[List[BlockType]],
     nougat_model,
     batch_size=settings.NOUGAT_BATCH_SIZE,
 ) -> (List[Page], dict):
@@ -311,7 +313,7 @@ def replace_equations(
     reformat_region_lens = []
     for pnum, page in enumerate(pages):
         regions, region_lens = find_page_equation_regions(
-            pnum, page, block_types, nougat_model
+            page, pages_types[pnum], nougat_model
         )
         reformat_regions.append(regions)
         reformat_region_lens.append(region_lens)
@@ -326,9 +328,16 @@ def replace_equations(
     merged_boxes = []
     for page_idx, reformat_regions_page in enumerate(reformat_regions):
         page_obj = doc[page_idx]
-        for reformat_region in reformat_regions_page:
+        for index, reformat_region in enumerate(reformat_regions_page):
             bboxes, merged_box = get_bboxes_for_region(pages[page_idx], reformat_region)
             png_image = get_nougat_image(page_obj, merged_box, bboxes)
+
+            # Save equation image
+            file_name = f"equation_{page_idx}_{index}.bmp"
+            save_path = os.path.join("./", file_name)
+            with open(save_path, 'wb') as f:
+                f.write(png_image.getvalue()) 
+            
             images.append(png_image)
             merged_boxes.append(merged_box)
 
