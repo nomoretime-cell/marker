@@ -77,10 +77,10 @@ def get_nougat_image(page, merged_block_bboxes, block_bboxes):
 
 def replace_latex_fences(text):
     # Replace block equations: \[ ... \] with $$...$$
-    text = re.sub(r"\\\[(.*?)\\\]", r"$$\1$$", text)
+    text = re.sub(r"\\\[(.*?)\\\]", r"$$\1$$\n", text)
 
     # Replace inline math: \( ... \) with $...$
-    text = re.sub(r"\\\((.*?)\\\)", r"$\1$", text)
+    text = re.sub(r"\\\((.*?)\\\)", r"$\1$ ", text)
 
     return text
 
@@ -189,7 +189,7 @@ def find_page_equation_regions(page: Page, page_types: List[BlockType], nougat_m
             while (
                 should_merge_blocks(block_bbox, next_bbox)
                 or next_block.contains_equation(equation_lines)
-                or len(selected_blocks) <= 1
+                or len(selected_blocks) <= 3
             ) and i + 1 < len(page.blocks):
                 block_bbox = merge_boxes(block_bbox, next_bbox)
                 prelim_block_text = block_text + " " + next_block.prelim_text

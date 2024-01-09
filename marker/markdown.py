@@ -340,8 +340,10 @@ def merge_lines(
                         for b in page[block_index + 1 : block_index + 5]:
                             if b:
                                 blocks_start.append(b.x_start)
-
-                        line_indent = line.bbox[0] - min(blocks_start)
+                        if len(blocks_start) == 0:
+                            line_indent = 0
+                        else:
+                            line_indent = line.bbox[0] - min(blocks_start)
 
                     if line_gap <= 5:
                         # In same line -> IsContinuation.TRUE
