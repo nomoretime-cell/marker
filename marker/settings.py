@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     OCR_ENGINE: str = "ocrmypdf" # Which OCR engine to use, either "tesseract" or "ocrmypdf".  Ocrmypdf is higher quality, but slower.
 
     # Nougat model
-    NOUGAT_MODEL_MAX: int = 512 # Max inference length for nougat
+    NOUGAT_MODEL_MAX: int = 1024 # Max inference length for nougat
     NOUGAT_TOKEN_BUFFER: int = 256 # Number of tokens to buffer above max for nougat
     NOUGAT_HALLUCINATION_WORDS: List[str] = [
         "[MISSING_PAGE_POST]",
