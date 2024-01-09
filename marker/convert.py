@@ -152,9 +152,9 @@ def convert_single_pdf(
     # indent_blocks(blocks)
 
     # Fix table blocks
-    merge_table_blocks(pages)
-    table_count = create_new_tables(pages)
-    out_meta["block_stats"]["table"] = table_count
+    # merge_table_blocks(pages)
+    # table_count = create_new_tables(pages)
+    # out_meta["block_stats"]["table"] = table_count
 
     for page in pages:
         for block in page.blocks:
