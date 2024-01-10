@@ -62,7 +62,7 @@ def get_all_spans(pages: List[Page]) -> List[Span]:
                 for span in line.spans:
                     spans.append(span)
     # FOR DEBUG
-    with open("all_spans_type.txt", "w") as file:
+    with open("all_spans_type.txt", "w", encoding="utf-8") as file:
         for span in spans:
             file.write(str(span) + "\n")
     return spans

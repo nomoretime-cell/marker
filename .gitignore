@@ -173,3 +173,4 @@ scripts/install/ghostscript-10.01.2.tar.gz
 testfile/
 model/
 *.txt
+nltk.tar.gz

@@ -13,6 +13,12 @@ RUN cd scripts/install/ && \
 
 # install poetry
 RUN pip install poetry
+# install nltk
+RUN pip install nltk
+
+COPY nltk.tar.gz /tmp/nltk.tar.gz
+RUN mkdir -p /root/nltk_data && \
+    tar xzf /tmp/nltk.tar.gz -C /
 
 # install poetry dependencies
 RUN poetry config installer.max-workers 10
