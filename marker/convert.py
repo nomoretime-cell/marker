@@ -54,6 +54,7 @@ def get_length_of_text(fname: str) -> int:
 
     return len(full_text)
 
+
 def get_all_spans(pages: List[Page]) -> List[Span]:
     spans: List[Span] = []
     for page in pages:
@@ -66,6 +67,31 @@ def get_all_spans(pages: List[Page]) -> List[Span]:
         for span in spans:
             file.write(str(span) + "\n")
     return spans
+
+
+def update_equations_in_spans(
+    pages: List[Page], pages_types: List[List[BlockType]]
+) -> List[Span]:
+    spans: List[Span] = []
+    for page_index, page in enumerate(pages):
+        for block in page.blocks:
+            for line_index, line in enumerate(block.lines):
+                containsFormula = False
+                for span in line.spans:
+                    if span.size < page.text_font and span.block_type == "Text":
+                        containsFormula = True
+                        break
+                if containsFormula:
+                    pages_types[page_index][line_index].block_type = "Formula"
+                    for span in line.spans:
+                        span.block_type = "Formula"
+
+    # FOR DEBUG
+    with open("all_updated_spans_type.txt", "w", encoding="utf-8") as file:
+        for span in spans:
+            file.write(str(span) + "\n")
+    return spans
+
 
 def convert_single_pdf(
     fname: str,
@@ -135,6 +161,7 @@ def convert_single_pdf(
     if len(sa.type2fontSize[SpanType.Text.value]) > 0:
         for page in pages:
             page.text_font = sa.type2fontSize[SpanType.Text.value][0].font_size
+    # update_equations_in_spans(pages, pages_types)
 
     # Dump debug data if flags are set
     dump_bbox_debug_data(doc, pages)
