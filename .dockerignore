@@ -1,4 +1,6 @@
 model/*
+testfile/*
+*.pdf
 .conda/*
 .github/*
 .vscode/*
