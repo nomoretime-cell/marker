@@ -1,15 +1,13 @@
 import json
+import uuid
 from typing import List
 from client.config_reader import ConfigReader
 from client.marker_client import HttpClient
 from client.s3_client import S3Client
 from client.structure import MessageBody, serialize_message_body
 
-
 if __name__ == "__main__":
-    config_reader: ConfigReader = ConfigReader(
-        "/home/yejibing/code/marker/client/config.ini"
-    )
+    config_reader: ConfigReader = ConfigReader("client/config.ini")
 
     minio_client: S3Client = S3Client(
         config_reader.get_value("OSS", "endpoint"),
@@ -31,6 +29,7 @@ if __name__ == "__main__":
     http_client = HttpClient(config_reader.get_value("MARKER", "url"))
     for message in messages:
         message_body = {
+            "requestId": str(uuid.uuid4()),
             "inFileUrl": message.get_presigned_url,
             "outFileUrl": message.generate_presigned_url,
             # "maxPages": 100,

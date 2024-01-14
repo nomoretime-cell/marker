@@ -96,4 +96,4 @@ async def post_v2_parser(parser_request: ParserRequest):
     if not parser_request.isDebug:
         delete_file(local_parser_request)
         delete_file(local_md_file)
-    return {"code": "200", "message": "success"}
+    return {"code": "200", "message": "success", "requestId": parser_request.requestId}

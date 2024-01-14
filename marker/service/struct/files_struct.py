@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 
 class ParserRequest(BaseModel):
+    requestId: str
     inFileUrl: str
     outFileUrl: str
     fileType: Optional[str] = "pdf"
