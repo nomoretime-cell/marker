@@ -22,7 +22,7 @@ if __name__ == "__main__":
         config_reader.get_value("OSS", "folder_path"),
         config_reader.get_value("OSS", "out_folder_path"),
         "pdf",
-        1,
+        3,
         True,
     )
 
@@ -31,9 +31,9 @@ if __name__ == "__main__":
     http_client = HttpClient(config_reader.get_value("MARKER", "url"))
     for message in messages:
         message_body = {
-            "inFileName": message.get_presigned_url,
-            "outFileName": message.generate_presigned_url,
-            "maxPages": 100,
-            "parallelFactor": 1,
+            "inFileUrl": message.get_presigned_url,
+            "outFileUrl": message.generate_presigned_url,
+            # "maxPages": 100,
+            # "parallelFactor": 1,
         }
         http_client.send_post_request(message_body)
