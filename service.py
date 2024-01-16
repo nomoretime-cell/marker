@@ -9,8 +9,9 @@ if __name__ == "__main__":
     concurrency: int = 100
     print(f"server limit_concurrency: {concurrency}")
     uvicorn.run(
-        app,
+        "service:app",
         host="0.0.0.0",
         port=8000,
         limit_concurrency=concurrency,
+        workers=4,
     )

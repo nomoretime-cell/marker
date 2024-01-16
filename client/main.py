@@ -1,39 +1,54 @@
-import json
-import uuid
-from typing import List
+import threading
+import time
+import queue
 from client.config_reader import ConfigReader
 from client.marker_client import HttpClient
 from client.s3_client import S3Client
-from client.structure import MessageBody, serialize_message_body
 
 if __name__ == "__main__":
     config_reader: ConfigReader = ConfigReader("client/config.ini")
 
+    start_time: float = time.time()
+    # Queue
+    message_queue: queue.Queue = queue.Queue()
+
+    # Producer
     minio_client: S3Client = S3Client(
         config_reader.get_value("OSS", "endpoint"),
         config_reader.get_value("OSS", "access_key"),
         config_reader.get_value("OSS", "secret_key"),
     )
-
-    messages: List[MessageBody] = minio_client.prepare_object(
-        config_reader.get_value("OSS", "bucket"),
-        config_reader.get_value("OSS", "folder_path"),
-        config_reader.get_value("OSS", "out_folder_path"),
-        "pdf",
-        3,
-        True,
+    producer_thread = threading.Thread(
+        target=minio_client.prepare_object,
+        args=(
+            message_queue,
+            config_reader.get_value("OSS", "bucket"),
+            config_reader.get_value("OSS", "folder_path"),
+            config_reader.get_value("OSS", "out_folder_path"),
+            "pdf",
+            int(config_reader.get_value("MARKER", "limit")),
+            True,
+        ),
     )
 
-    print(json.dumps(messages, default=serialize_message_body))
+    # Consumer
+    http_client = HttpClient(config_reader.get_value("MARKER", "url"), message_queue)
+    num_consumers = int(config_reader.get_value("MARKER", "concurrency"))
+    consumer_threads = [
+        threading.Thread(target=http_client.start_send_thread)
+        for _ in range(num_consumers)
+    ]
+    producer_thread.start()
+    for consumer_thread in consumer_threads:
+        consumer_thread.start()
 
-    http_client = HttpClient(config_reader.get_value("MARKER", "url"))
-    for message in messages:
-        message_body = {
-            "requestId": str(uuid.uuid4()),
-            "inFileUrl": message.inFileUrl,
-            "outFileUrl": message.outFileUrl,
-            # "maxPages": 100,
-            # "parallelFactor": 1,
-            # "isDebug": True,
-        }
-        http_client.send_post_request(message_body)
+    # Wait for all data to be processed
+    producer_thread.join()
+    for _ in range(num_consumers):
+        message_queue.put(None)
+    # Wait for all consumers to finish
+    for consumer_thread in consumer_threads:
+        consumer_thread.join()
+
+    execution_time: float = time.time() - start_time
+    print(f"Process all data took {execution_time} seconds to execute.")

@@ -1,8 +1,8 @@
+import queue
 from datetime import timedelta
 from typing import Generator, List
 from minio import Minio
 from minio.error import MinioException
-
 from client.structure import MessageBody
 
 
@@ -38,6 +38,7 @@ class S3Client:
 
     def prepare_object(
         self,
+        queue: queue.Queue[MessageBody],
         bucket_name: str,
         folder_path: str,
         out_folder_path: str,
@@ -45,8 +46,7 @@ class S3Client:
         limit: int = None,
         signed: bool = False,
         expiration: int = 3600,
-    ) -> List[MessageBody]:
-        messages: List[MessageBody] = []
+    ) -> None:
         for object_path in self.list_objects_path(
             bucket_name, folder_path, file_type, limit
         ):
@@ -54,9 +54,9 @@ class S3Client:
             out_object_path = out_folder_path + out_object_path.replace(file_type, "md")
 
             if not signed:
-                messages.append(MessageBody(object_path, out_object_path))
+                queue.put(MessageBody(object_path, out_object_path))
             else:
-                messages.append(
+                queue.put(
                     MessageBody(
                         self.get_presigned_url(bucket_name, object_path, expiration),
                         self.generate_presigned_url(
@@ -64,7 +64,6 @@ class S3Client:
                         ),
                     )
                 )
-        return messages
 
     def get_presigned_url(
         self, bucket_name: str, object_name: str, expiration: int
