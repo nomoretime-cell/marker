@@ -65,10 +65,15 @@ def download_presigned_file(presigned_get_url: str, local_file_path: str) -> Non
         print(f"Error downloading file: {e}")
 
 
-def upload_presigned_file(presigned_put_url: str, local_file_path: str) -> None:
+def upload_presigned_file(
+    presigned_put_url: str, local_file_path: str, local_file_content: str = None
+) -> None:
     try:
-        with open(local_file_path, "rb") as file:
-            response = requests.put(presigned_put_url, data=file)
+        if local_file_content is not None:
+            response = requests.put(presigned_put_url, data=local_file_content)
+        else:
+            with open(local_file_path, "rb") as file:
+                response = requests.put(presigned_put_url, data=file)
 
         if response.status_code == 200:
             print(

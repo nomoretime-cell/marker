@@ -72,11 +72,14 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
         f"Function '{convert_single_pdf.__name__}' took {execution_time} seconds to execute."
     )
 
-    with open(local_result_file, "w+", encoding="utf-8") as f:
-        f.write(full_text)
-
-    upload_presigned_file(parser_request.outFileUrl, local_result_file)
     if not parser_request.isDebug:
+        # PROD
         delete_file(local_original_file)
-        delete_file(local_result_file)
+        upload_presigned_file(parser_request.outFileUrl, local_result_file, full_text)
+    else:
+        # DEBUG
+        with open(local_result_file, "w+", encoding="utf-8") as f:
+            f.write(full_text)
+        upload_presigned_file(parser_request.outFileUrl, local_result_file)
+
     return ParserResponse(parser_request.requestId, "200", "success").to_dict()
