@@ -10,6 +10,9 @@ class S3Client:
     def __init__(
         self, endpoint: str, access_key: str, secret_key: str, secure: bool = False
     ) -> None:
+        if not endpoint or not access_key or not secret_key:
+            raise ValueError("'endpoint' or 'access key' or 'secret key' is Empty")
+
         self.minio_client: Minio = Minio(
             endpoint,
             access_key,
@@ -17,54 +20,54 @@ class S3Client:
             secure=secure,
         )
 
-    def list_objects_name(
-        self, bucket_name: str, prefix: str, suffix: str, limit: int = None
+    def list_objects_path(
+        self, bucket_name: str, folder_path: str, file_type: str, limit: int = None
     ) -> Generator[str, None, None]:
         objects: list = self.minio_client.list_objects(
-            bucket_name, prefix=prefix, recursive=True
+            bucket_name, prefix=folder_path, recursive=True
         )
         obj_count = 0
         for obj in objects:
             obj_name: str = obj.object_name
-            if not obj_name.endswith(suffix):
+            if not obj_name.endswith(file_type):
                 continue
             obj_count += 1
             yield obj_name
             if limit is not None and obj_count >= limit:
                 break
 
-    def explore_bucket(
+    def prepare_object(
         self,
         bucket_name: str,
         folder_path: str,
         out_folder_path: str,
-        suffix: str,
+        file_type: str,
         limit: int = None,
         signed: bool = False,
         expiration: int = 3600,
     ) -> List[MessageBody]:
         messages: List[MessageBody] = []
-        for minio_object in self.list_objects_name(
-            bucket_name, folder_path, suffix, limit
+        for object_path in self.list_objects_path(
+            bucket_name, folder_path, file_type, limit
         ):
-            # print(f"Object Name: {minio_object}")
+            out_object_path = object_path.rsplit("/", 1)[-1]
+            out_object_path = out_folder_path + out_object_path.replace(file_type, "md")
+
             if not signed:
-                messages.append(MessageBody(minio_object))
+                messages.append(MessageBody(object_path, out_object_path))
             else:
-                out_minio_object = minio_object.rsplit("/", 1)[-1]
-                out_minio_object = out_folder_path + out_minio_object.replace(suffix, "md")
                 messages.append(
                     MessageBody(
-                        self.get_presigned_url(bucket_name, minio_object, expiration),
+                        self.get_presigned_url(bucket_name, object_path, expiration),
                         self.generate_presigned_url(
-                            bucket_name, out_minio_object, expiration
+                            bucket_name, out_object_path, expiration
                         ),
                     )
                 )
         return messages
 
     def get_presigned_url(
-        self, bucket_name: str, object_name: str, expiration: int = 3600
+        self, bucket_name: str, object_name: str, expiration: int
     ) -> str:
         try:
             presigned_url = self.minio_client.presigned_get_object(
@@ -76,7 +79,7 @@ class S3Client:
             return None
 
     def generate_presigned_url(
-        self, bucket_name: str, object_name: str, expiration: int = 3600
+        self, bucket_name: str, object_name: str, expiration: int
     ) -> str:
         try:
             presigned_url = self.minio_client.presigned_put_object(

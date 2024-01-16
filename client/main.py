@@ -15,7 +15,7 @@ if __name__ == "__main__":
         config_reader.get_value("OSS", "secret_key"),
     )
 
-    messages: List[MessageBody] = minio_client.explore_bucket(
+    messages: List[MessageBody] = minio_client.prepare_object(
         config_reader.get_value("OSS", "bucket"),
         config_reader.get_value("OSS", "folder_path"),
         config_reader.get_value("OSS", "out_folder_path"),
@@ -30,9 +30,10 @@ if __name__ == "__main__":
     for message in messages:
         message_body = {
             "requestId": str(uuid.uuid4()),
-            "inFileUrl": message.get_presigned_url,
-            "outFileUrl": message.generate_presigned_url,
+            "inFileUrl": message.inFileUrl,
+            "outFileUrl": message.outFileUrl,
             # "maxPages": 100,
             # "parallelFactor": 1,
+            # "isDebug": True,
         }
         http_client.send_post_request(message_body)

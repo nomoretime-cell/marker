@@ -1,49 +1,37 @@
-import uuid
 import time
 import json
 
 from fastapi import APIRouter
 from marker.convert import convert_single_pdf
 from marker.models import load_all_models
-from marker.service.func.files_func import (
+from marker.service.func.parser_func import (
     delete_file,
     download_file,
     download_presigned_file,
     upload_file,
     upload_presigned_file,
 )
-
-
-from marker.service.struct.files_struct import ParserRequest
-
+from marker.service.struct.parser_struct import ParserRequest, ParserResponse
 
 router = APIRouter()
 model_lst = load_all_models()
 
 
 @router.post("/parser/", tags=["pdf parser"])
-async def post_parser(parser_request: ParserRequest):
+async def post_parser(parser_request: ParserRequest) -> dict:
     download_file(
         parser_request.inFileUrl,
         parser_request.inFileUrl,
     )
 
-    start_time = time.time()
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(
-        f"Function '{load_all_models.__name__}' took {execution_time} seconds to execute."
-    )
-
-    start_time = time.time()
+    start_time: float = time.time()
     full_text, out_meta = convert_single_pdf(
         parser_request.inFileUrl,
         model_lst,
         max_pages=parser_request.maxPages,
         parallel_factor=parser_request.parallelFactor,
     )
-    end_time = time.time()
-    execution_time = end_time - start_time
+    execution_time: float = time.time() - start_time
     print(
         f"Function '{convert_single_pdf.__name__}' took {execution_time} seconds to execute."
     )
@@ -56,44 +44,39 @@ async def post_parser(parser_request: ParserRequest):
         f.write(json.dumps(out_meta, indent=4))
 
     upload_file(parser_request.outFileUrl, parser_request.outFileUrl)
-    return {"code": "200", "message": "success"}
+    if not parser_request.isDebug:
+        delete_file(out_meta_filename)
+        delete_file(parser_request.inFileUrl)
+        delete_file(parser_request.outFileUrl)
+    return ParserResponse(parser_request.requestId, "200", "success").to_dict()
 
 
-@router.post("/v1/parser/", tags=["file parser"])
-async def post_v2_parser(parser_request: ParserRequest):
-    uuid_str = str(uuid.uuid4())
-    local_parser_request: str = uuid_str + "." + parser_request.fileType
-    local_md_file: str = uuid_str + ".md"
+@router.post("/v1/parser/", tags=["pdf parser"])
+async def post_v1_parser(parser_request: ParserRequest) -> dict:
+    local_original_file: str = parser_request.requestId + "." + parser_request.fileType
+    local_result_file: str = parser_request.requestId + ".md"
     download_presigned_file(
         parser_request.inFileUrl,
-        local_parser_request,
+        local_original_file,
     )
 
-    start_time = time.time()
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(
-        f"Function '{load_all_models.__name__}' took {execution_time} seconds to execute."
-    )
-
-    start_time = time.time()
+    start_time: float = time.time()
     full_text, out_meta = convert_single_pdf(
-        local_parser_request,
+        local_original_file,
         model_lst,
         max_pages=parser_request.maxPages,
         parallel_factor=parser_request.parallelFactor,
     )
-    end_time = time.time()
-    execution_time = end_time - start_time
+    execution_time: float = time.time() - start_time
     print(
         f"Function '{convert_single_pdf.__name__}' took {execution_time} seconds to execute."
     )
 
-    with open(local_md_file, "w+", encoding="utf-8") as f:
+    with open(local_result_file, "w+", encoding="utf-8") as f:
         f.write(full_text)
 
-    upload_presigned_file(parser_request.outFileUrl, local_md_file)
+    upload_presigned_file(parser_request.outFileUrl, local_result_file)
     if not parser_request.isDebug:
-        delete_file(local_parser_request)
-        delete_file(local_md_file)
-    return {"code": "200", "message": "success", "requestId": parser_request.requestId}
+        delete_file(local_original_file)
+        delete_file(local_result_file)
+    return ParserResponse(parser_request.requestId, "200", "success").to_dict()

@@ -2,17 +2,18 @@ import os
 import requests
 from minio import Minio
 
+# DEBUG MODE
 client = Minio(
-    # "0.0.0.0:9000",
     "30.220.144.140:9000",
     access_key="minioadmin",
     secret_key="minioadmin",
     secure=False,
 )
 bucket_name = "jibing"
+# DEBUG MODE
 
 
-def download_file(source_file: str, destination_file: str):
+def download_file(source_file: str, destination_file: str) -> None:
     found = client.bucket_exists(bucket_name)
     if not found:
         client.make_bucket(bucket_name)
@@ -27,7 +28,7 @@ def download_file(source_file: str, destination_file: str):
     )
 
 
-def upload_file(source_file: str, destination_file: str):
+def upload_file(source_file: str, destination_file: str) -> None:
     found = client.bucket_exists(bucket_name)
     if not found:
         client.make_bucket(bucket_name)
@@ -49,9 +50,9 @@ def upload_file(source_file: str, destination_file: str):
     )
 
 
-def download_presigned_file(signed_url, local_file_path):
+def download_presigned_file(presigned_get_url: str, local_file_path: str) -> None:
     try:
-        response = requests.get(signed_url)
+        response = requests.get(presigned_get_url)
 
         if response.status_code == 200:
             with open(local_file_path, "wb") as file:
@@ -64,13 +65,15 @@ def download_presigned_file(signed_url, local_file_path):
         print(f"Error downloading file: {e}")
 
 
-def upload_presigned_file(presigned_url, local_file_path):
+def upload_presigned_file(presigned_put_url: str, local_file_path: str) -> None:
     try:
         with open(local_file_path, "rb") as file:
-            response = requests.put(presigned_url, data=file)
+            response = requests.put(presigned_put_url, data=file)
 
         if response.status_code == 200:
-            print(f"Successfully uploaded file using presigned URL: {presigned_url}")
+            print(
+                f"Successfully uploaded file using presigned URL: {presigned_put_url}"
+            )
         else:
             print(
                 f"Failed to upload file using presigned URL. Status code: {response.status_code}"
@@ -80,7 +83,7 @@ def upload_presigned_file(presigned_url, local_file_path):
         print(f"Error uploading file using presigned URL: {e}")
 
 
-def delete_file(file_path):
+def delete_file(file_path: str) -> None:
     try:
         os.remove(file_path)
         print(f"Successfully deleted file: {file_path}")
