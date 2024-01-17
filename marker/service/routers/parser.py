@@ -30,6 +30,7 @@ async def post_parser(parser_request: ParserRequest) -> dict:
         model_lst,
         max_pages=parser_request.maxPages,
         parallel_factor=parser_request.parallelFactor,
+        debug_mode = parser_request.isDebug,
     )
     execution_time: float = time.time() - start_time
     print(
@@ -66,6 +67,7 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
         model_lst,
         max_pages=parser_request.maxPages,
         parallel_factor=parser_request.parallelFactor,
+        debug_mode = parser_request.isDebug,
     )
     execution_time: float = time.time() - start_time
     print(

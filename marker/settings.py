@@ -10,6 +10,7 @@ import torch
 
 class Settings(BaseSettings):
     # General
+    WORKER_NUM: int = 1
     TORCH_DEVICE: str = "cpu"
     INFERENCE_RAM: int = 40 # How much VRAM each GPU has (in GB).
     VRAM_PER_TASK: float = 2.5 # How much VRAM to allocate per task (in GB).  Peak marker VRAM usage is around 3GB, but avg across workers is lower.

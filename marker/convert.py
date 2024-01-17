@@ -99,6 +99,7 @@ def convert_single_pdf(
     max_pages=None,
     metadata: Optional[Dict] = None,
     parallel_factor: int = 1,
+    debug_mode: bool = False,
 ) -> Tuple[str, Dict]:
     lang = settings.DEFAULT_LANG
     if metadata:
@@ -194,6 +195,7 @@ def convert_single_pdf(
         pages_types,
         nougat_model,
         batch_size=settings.NOUGAT_BATCH_SIZE * parallel_factor,
+        debug_mode=debug_mode,
     )
     out_meta["block_stats"]["equations"] = eq_stats
 

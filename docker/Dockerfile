@@ -19,7 +19,7 @@ RUN pip install poetry
 # install nltk
 RUN pip install nltk
 # install poetry dependencies
-RUN poetry config installer.max-workers 10
+RUN poetry config installer.max-workers 20
 # RUN poetry install --no-root --no-dev
 RUN poetry install --no-interaction --no-ansi -vvv --no-root --no-dev && \
     rm -rf /root/.cache/pypoetry/artifacts /root/.cache/pypoetry/cache

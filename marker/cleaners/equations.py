@@ -308,6 +308,7 @@ def replace_equations(
     pages_types: List[List[BlockType]],
     nougat_model,
     batch_size=settings.NOUGAT_BATCH_SIZE,
+    debug_mode: bool = False,
 ) -> (List[Page], dict):
     unsuccessful_ocr = 0
     successful_ocr = 0
@@ -338,11 +339,12 @@ def replace_equations(
             )
             png_image = get_nougat_image(page_obj, merged_block_bboxes, block_bboxes)
 
-            # Save equation image
-            file_name = f"equation_{page_idx}_{index}.bmp"
-            save_path = os.path.join("./", file_name)
-            with open(save_path, "wb") as f:
-                f.write(png_image.getvalue())
+            if debug_mode:
+                # Save equation image
+                file_name = f"equation_{page_idx}_{index}.bmp"
+                save_path = os.path.join("./", file_name)
+                with open(save_path, "wb") as f:
+                    f.write(png_image.getvalue())
 
             images.append(png_image)
             merged_boxes.append(merged_block_bboxes)
