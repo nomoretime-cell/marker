@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     start_time: float = time.time()
     # Queue
-    message_queue: queue.Queue = queue.Queue()
+    message_queue: queue.Queue = queue.Queue(maxsize=1000)
 
     # Producer
     minio_client: S3Client = S3Client(
@@ -32,10 +32,10 @@ if __name__ == "__main__":
     )
 
     # Consumer
-    http_client = HttpClient(config_reader.get_value("MARKER", "url"), message_queue)
+    http_client = HttpClient(config_reader.get_value("MARKER", "url"))
     num_consumers = int(config_reader.get_value("MARKER", "concurrency"))
     consumer_threads = [
-        threading.Thread(target=http_client.start_send_thread)
+        threading.Thread(target=http_client.start_send_thread, args=(message_queue,))
         for _ in range(num_consumers)
     ]
     producer_thread.start()
