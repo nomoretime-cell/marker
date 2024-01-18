@@ -2,6 +2,7 @@ FROM python:3.11.5
 
 WORKDIR /marker
 # copy project
+COPY model/ /marker/model
 COPY marker/ /marker/marker
 COPY *.py poetry.lock pyproject.toml ./
 COPY local-prod.env local.env
