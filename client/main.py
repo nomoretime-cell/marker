@@ -2,7 +2,7 @@ import threading
 import time
 import queue
 from client.config_reader import ConfigReader
-from client.marker_client import HttpClient
+from client.http_client import HttpClient
 from client.s3_client import S3Client
 
 if __name__ == "__main__":
