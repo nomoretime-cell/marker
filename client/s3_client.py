@@ -50,14 +50,17 @@ class S3Client:
         for object_path in self.list_objects_path(
             bucket_name, folder_path, file_type, limit
         ):
-            out_object_path = object_path.rsplit("/", 1)[-1]
-            out_object_path = out_folder_path + out_object_path.replace(file_type, "md")
+            file_original_name = object_path.rsplit("/", 1)[-1]
+            out_object_path = out_folder_path + file_original_name.replace(
+                file_type, "md"
+            )
 
             if not signed:
-                queue.put(MessageBody(object_path, out_object_path))
+                queue.put(MessageBody(file_original_name, object_path, out_object_path))
             else:
                 queue.put(
                     MessageBody(
+                        file_original_name,
                         self.get_presigned_url(bucket_name, object_path, expiration),
                         self.generate_presigned_url(
                             bucket_name, out_object_path, expiration

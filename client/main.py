@@ -1,6 +1,7 @@
 import threading
 import time
 import queue
+import uuid
 from client.config_reader import ConfigReader
 from client.http_client import HttpClient
 from client.s3_client import S3Client
@@ -28,6 +29,7 @@ if __name__ == "__main__":
             "pdf",
             int(config_reader.get_value("MARKER", "limit")),
             True,
+            3600 * 24,
         ),
     )
 
@@ -35,7 +37,13 @@ if __name__ == "__main__":
     http_client = HttpClient(config_reader.get_value("MARKER", "url"))
     num_consumers = int(config_reader.get_value("MARKER", "concurrency"))
     consumer_threads = [
-        threading.Thread(target=http_client.start_send_thread, args=(message_queue,))
+        threading.Thread(
+            target=http_client.start_send_thread,
+            args=(
+                message_queue,
+                config_reader.get_value("MARKER", "save_presigned_url"),
+            ),
+        )
         for _ in range(num_consumers)
     ]
     producer_thread.start()

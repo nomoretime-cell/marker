@@ -1,5 +1,6 @@
 class MessageBody:
-    def __init__(self, inFileUrl: str, outFileUrl: str = ""):
+    def __init__(self, file_original_name: str, inFileUrl: str, outFileUrl: str = ""):
+        self.file_original_name = file_original_name
         self.inFileUrl: str = inFileUrl
         self.outFileUrl: str = outFileUrl
 

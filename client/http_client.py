@@ -4,12 +4,18 @@ import requests
 import json
 import uuid
 
+data_index: int = 0
+file_index: int = 0
+concurrency_lock = threading.Lock()
+
 
 class HttpClient:
     def __init__(self, server_url: str):
         self.server_url: str = server_url
 
-    def start_send_thread(self, message_queue: queue.Queue):
+    def start_send_thread(
+        self: str, message_queue: queue.Queue, save_presigned_url: str
+    ):
         while True:
             message = message_queue.get()
             if message is None:
@@ -22,7 +28,27 @@ class HttpClient:
                 # "parallelFactor": 1,
                 # "isDebug": True,
             }
-            self.send_post_request(message_body)
+            if save_presigned_url == "True":
+                self.append_to_jsonl(message)
+            else:
+                self.send_post_request(message_body)
+
+    def append_to_jsonl(self, message):
+        global data_index
+        global file_index
+        with concurrency_lock:
+            file_path: str = f"presigned_url-{file_index}.jsonl"
+            jsonl = {
+                "id": data_index,
+                "name": message.file_original_name,
+                "url": message.inFileUrl,
+            }
+            data_index = data_index + 1
+            if data_index % (10000 * 5) == 0:
+                file_index = file_index + 1
+            with open(file_path, "a", encoding="utf-8") as file:
+                json_line = json.dumps(jsonl, ensure_ascii=False)
+                file.write(json_line + "\n")
 
     def send_post_request(self, message_body: dict):
         try:
