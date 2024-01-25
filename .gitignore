@@ -174,3 +174,4 @@ testfile/
 model/
 *.txt
 *.tar*
+presigned_url/

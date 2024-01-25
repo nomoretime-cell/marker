@@ -44,7 +44,7 @@ class HttpClient:
                 "url": message.inFileUrl,
             }
             data_index = data_index + 1
-            if data_index % (10000 * 5) == 0:
+            if data_index % (10000 * 20) == 0:
                 file_index = file_index + 1
             with open(file_path, "a", encoding="utf-8") as file:
                 json_line = json.dumps(jsonl, ensure_ascii=False)
