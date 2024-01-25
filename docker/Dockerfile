@@ -16,6 +16,7 @@ RUN apt-get update && \
     yes | apt-get install ghostscript
 
 # install poetry
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 RUN pip install poetry
 # install nltk
 RUN pip install nltk
