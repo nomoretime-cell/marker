@@ -1,3 +1,4 @@
+import logging
 import fitz as pymupdf
 from marker.analyzer.spans import SpanType, SpansAnalyzer
 
@@ -32,7 +33,7 @@ def find_filetype(fpath):
     elif mimetype in settings.SUPPORTED_FILETYPES:
         return settings.SUPPORTED_FILETYPES[mimetype]
     else:
-        print(f"Found nonstandard filetype {mimetype}")
+        logging.error(f"Found nonstandard filetype {mimetype}")
         return "other"
 
 
@@ -137,7 +138,7 @@ def convert_single_pdf(
     out_meta["pages"] = len(pages)
     out_meta["ocr_stats"] = ocr_stats
     if len([b for p in pages for b in p.blocks]) == 0:
-        print(f"Could not extract any text blocks for {fname}")
+        logging.error(f"Could not extract any text blocks for {fname}")
         return "", out_meta
 
     # Unpack models from list
