@@ -32,6 +32,7 @@ bitsandbytes = "^0.41.2.post2" # The bitsandbytes is a lightweight wrapper aroun
 fastapi = "^0.105.0"           # http server
 uvicorn = "^0.25.0"            # ASGI（Asynchronous Server Gateway Interface）服务器
 minio = "^7.2.0"               # minio
+gunicorn = "^21.2.0"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
