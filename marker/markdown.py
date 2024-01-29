@@ -265,22 +265,22 @@ def merge_spans(pages: List[Page]) -> List[List[MergedBlock]]:
                     #     ):
                     #         span_text = surround_text(span_text, "**")
 
-                    if (
-                        span.flags is not None
-                        and span.flags & 2**0
-                        and span.size < page.text_font
-                    ):
-                        span_text = set_front(span_text, "<sup>", "</sup>")
-                    elif (
-                        span.size is not None
-                        and surround_span is not None
-                        and surround_span.origin is not None
-                        and span.size < page.text_font
-                    ):
-                        if abs(surround_span.origin[1] - span.origin[1]) < 2:
-                            span_text = set_front(span_text, "<sub>", "</sub>")
-                        else:
-                            span_text = set_front(span_text, "<sup>", "</sup>")
+                    # if (
+                    #     span.flags is not None
+                    #     and span.flags & 2**0
+                    #     and span.size < page.text_font
+                    # ):
+                    #     span_text = set_front(span_text, "<sup>", "</sup>")
+                    # elif (
+                    #     span.size is not None
+                    #     and surround_span is not None
+                    #     and surround_span.origin is not None
+                    #     and span.size < page.text_font
+                    # ):
+                    #     if abs(surround_span.origin[1] - span.origin[1]) < 2:
+                    #         span_text = set_front(span_text, "<sub>", "</sub>")
+                    #     else:
+                    #         span_text = set_front(span_text, "<sup>", "</sup>")
 
                     line_text += span_text
                 block_lines.append(
