@@ -19,22 +19,24 @@ import magic
 from marker.settings import settings
 
 
-def find_filetype(fpath):
+def get_filetype(
+    fpath: str,
+) -> Tuple[bool, str]:
     mimetype = magic.from_file(fpath).lower()
 
     # Get extensions from mimetype
     # The mimetype is not always consistent, so use in to check the most common formats
     if "pdf" in mimetype:
-        return "pdf"
+        return True, "pdf"
     elif "epub" in mimetype:
-        return "epub"
+        return True, "epub"
     elif "mobi" in mimetype:
-        return "mobi"
+        return True, "mobi"
     elif mimetype in settings.SUPPORTED_FILETYPES:
-        return settings.SUPPORTED_FILETYPES[mimetype]
+        return True, settings.SUPPORTED_FILETYPES[mimetype]
     else:
         logging.error(f"Found nonstandard filetype {mimetype}")
-        return "other"
+        return False, "other"
 
 
 def annotate_spans_type(pages: List[Page], pages_types: List[List[BlockType]]):
@@ -44,8 +46,8 @@ def annotate_spans_type(pages: List[Page], pages_types: List[List[BlockType]]):
 
 
 def get_length_of_text(fname: str) -> int:
-    filetype = find_filetype(fname)
-    if filetype == "other":
+    is_support, filetype = get_filetype(fname)
+    if not is_support:
         return 0
 
     doc = pymupdf.Document(fname, filetype=filetype)
@@ -94,14 +96,7 @@ def update_equations_in_spans(
     return spans
 
 
-def convert_single_pdf(
-    fname: str,
-    model_lst: List,
-    max_pages=None,
-    metadata: Optional[Dict] = None,
-    parallel_factor: int = 1,
-    debug_mode: bool = False,
-) -> Tuple[str, Dict]:
+def get_language(metadata: Optional[Dict] = None) -> Tuple[str, str, str]:
     lang = settings.DEFAULT_LANG
     if metadata:
         lang = metadata.get("language", settings.DEFAULT_LANG)
@@ -111,21 +106,35 @@ def convert_single_pdf(
     spell_lang = settings.SPELLCHECK_LANGUAGES.get(lang, None)
     if "eng" not in tess_lang:
         tess_lang = f"eng+{tess_lang}"
+    return lang, tess_lang, spell_lang
 
-    # Output metadata
+
+def convert_single_pdf(
+    fname: str,
+    model_lst: List,
+    max_pages=None,
+    metadata: Optional[Dict] = None,
+    parallel_factor: int = 1,
+    debug_mode: bool = False,
+) -> Tuple[str, Dict]:
+    # get language setting
+    lang, tess_lang, spell_lang = get_language(metadata)
     out_meta = {"language": lang}
 
-    filetype = find_filetype(fname)
-    if filetype == "other":
+    # get file type
+    is_support, filetype = get_filetype(fname)
+    if not is_support:
         return "", out_meta
-
     out_meta["filetype"] = filetype
 
+    # read file
     doc: pymupdf.Document = pymupdf.Document(fname, filetype=filetype)
+    # convert other file types to PDF
+    # support document formats: PDF XPS EPUB MOBI FB2 CBZ SVG TXT
     if filetype != "pdf":
-        conv = doc.convert_to_pdf()
-        doc = pymupdf.open("pdf", conv)
+        doc = pymupdf.open("pdf", doc.convert_to_pdf())
 
+    # get pages
     pages, toc, ocr_stats = get_pages(
         doc,
         tess_lang,

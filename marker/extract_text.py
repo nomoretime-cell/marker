@@ -15,7 +15,7 @@ import fitz as pymupdf
 os.environ["TESSDATA_PREFIX"] = settings.TESSDATA_PREFIX
 
 
-def get_text(doc):
+def get_doc_text(doc) -> str:
     full_text = ""
     for page in doc:
         full_text += page.get_text("text", sort=True, flags=settings.TEXT_FLAGS)
@@ -23,7 +23,7 @@ def get_text(doc):
     return full_text
 
 
-def sort_rotated_text(blocks, tolerance=1.25):
+def sort_rotated_text(blocks, tolerance=1.25) -> List[Block]:
     vertical_groups = {}
     for block in blocks:
         group_key = round(block.bbox[1] / tolerance) * tolerance
@@ -46,16 +46,14 @@ def get_blocks(
     tess_lang: str,
     spellchecker: Optional[SpellChecker] = None,
     ocr=False,
-) -> Tuple[List[Block], int]:
+) -> List[Block]:
     page: pymupdf.Page = doc.load_page(pnum)
     rotation = page.rotation
 
     if ocr:
         blocks = ocr_entire_page(page, tess_lang, spellchecker)
     else:
-        blocks = page.get_text(
-            "dict", sort=True, flags=settings.TEXT_FLAGS
-        )["blocks"]
+        blocks = page.get_text("dict", sort=True, flags=settings.TEXT_FLAGS)["blocks"]
 
     return_blocks = []
     span_id = 0
@@ -105,7 +103,7 @@ def get_page(
     pnum: int,
     tess_lang: str,
     spell_lang: Optional[str],
-    no_text: bool,
+    if_no_text: bool,
     disable_ocr: bool = False,
     min_ocr_page: int = 2,
 ):
@@ -121,12 +119,14 @@ def get_page(
     # OCR page if we got minimal text, or if we got too many spaces
     conditions = [
         (
-            no_text  # Full doc has no text, and needs full OCR
+            if_no_text  # Full doc has no text, and needs full OCR
             or (
                 len(page.prelim_text) > 0
                 and detect_bad_ocr(page.prelim_text, spellchecker)
             )  # Bad OCR
         ),
+        # keep title
+        # (pnum == 0) or (min_ocr_page < pnum < len(doc) - 1),
         min_ocr_page < pnum < len(doc) - 1,
         not disable_ocr,
     ]
@@ -161,9 +161,12 @@ def get_pages(
     ocr_success = 0
 
     process_pages = min(max_pages, len(doc)) if max_pages else len(doc)
-    if_no_text = len(get_text(doc).strip()) == 0
+    if_no_text = len(get_doc_text(doc).strip()) == 0
 
-    with ThreadPoolExecutor(max_workers=parallel) as pool:
+    with ThreadPoolExecutor(
+        max_workers=parallel, thread_name_prefix="GetPagesThread"
+    ) as pool:
+        # new_list = [expression for item in iterable if condition]
         args_list = [
             (doc, pnum, tess_lang, spell_lang, if_no_text)
             for pnum in range(process_pages)

@@ -54,7 +54,7 @@ async def post_parser(parser_request: ParserRequest) -> dict:
     return ParserResponse(parser_request.requestId, "200", "success").to_dict()
 
 
-@router.post("/v1/parser/", tags=["pdf parser"])
+@router.post("/v1/parser/", tags=["doc parser"])
 async def post_v1_parser(parser_request: ParserRequest) -> dict:
     logging.info(f"POST request, thread id: {threading.current_thread().ident}")
     local_original_file: str = parser_request.requestId + "." + parser_request.fileType
