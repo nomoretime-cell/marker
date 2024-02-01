@@ -140,7 +140,7 @@ def convert_single_pdf(
         tess_lang,
         spell_lang,
         max_pages=max_pages,
-        parallel=parallel_factor * settings.OCR_PARALLEL_WORKERS,
+        parallel=settings.OCR_PARALLEL_WORKERS * parallel_factor,
     )
 
     out_meta["toc"] = toc

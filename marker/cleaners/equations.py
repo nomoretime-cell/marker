@@ -1,7 +1,7 @@
 import io
 from copy import deepcopy
 from functools import partial
-from typing import List
+from typing import List, Tuple
 
 import torch
 from nougat import NougatModel
@@ -11,7 +11,7 @@ import re
 from PIL import Image, ImageDraw
 from nougat.utils.dataset import ImageDataset
 
-from marker.bbox import should_merge_blocks, merge_boxes
+from marker.bbox import is_in_same_line, merge_boxes
 from marker.debug.data import dump_nougat_debug_data
 from marker.settings import settings
 from marker.schema import Page, Span, Line, Block, BlockType
@@ -32,21 +32,21 @@ def load_nougat_model():
     return nougat_model
 
 
-def mask_bbox(png_image, bbox, selected_bboxes):
+def get_mask_image(png_image, bbox: List[float], selected_bboxes: List[List[float]]):
     mask = Image.new("L", png_image.size, 0)  # 'L' mode for grayscale
     draw = ImageDraw.Draw(mask)
-    first_x = bbox[0]
-    first_y = bbox[1]
+    bbox_x = bbox[0]
+    bbox_y = bbox[1]
     bbox_height = bbox[3] - bbox[1]
     bbox_width = bbox[2] - bbox[0]
 
     for box in selected_bboxes:
         # Fit the box to the selected region
         new_box = (
-            box[0] - first_x,
-            box[1] - first_y,
-            box[2] - first_x,
-            box[3] - first_y,
+            box[0] - bbox_x,
+            box[1] - bbox_y,
+            box[2] - bbox_x,
+            box[3] - bbox_y,
         )
         # Fit mask to image bounds versus the pdf bounds
         resized = (
@@ -63,11 +63,11 @@ def mask_bbox(png_image, bbox, selected_bboxes):
     return result
 
 
-def get_nougat_image(page, merged_block_bboxes, block_bboxes):
-    pix = page.get_pixmap(dpi=settings.NOUGAT_DPI, clip=merged_block_bboxes)
+def get_equation_image(page, merged_block_bbox, block_bboxes):
+    pix = page.get_pixmap(dpi=settings.NOUGAT_DPI, clip=merged_block_bbox)
     png = pix.pil_tobytes(format="BMP")
     png_image = Image.open(io.BytesIO(png))
-    png_image = mask_bbox(png_image, merged_block_bboxes, block_bboxes)
+    png_image = get_mask_image(png_image, merged_block_bbox, block_bboxes)
     png_image = png_image.convert("RGB")
 
     img_out = io.BytesIO()
@@ -75,7 +75,126 @@ def get_nougat_image(page, merged_block_bboxes, block_bboxes):
     return img_out
 
 
-def replace_latex_fences(text):
+def get_tokens_len(text, nougat_model):
+    tokenizer = nougat_model.decoder.tokenizer
+    tokens = tokenizer(text)
+    return len(tokens["input_ids"])
+
+
+def get_page_equation_regions(page: Page, page_types: List[BlockType], nougat_model):
+    i = 0
+    equation_blocks_index_set = set()
+    equation_blocks_index_list: List[List[int]] = []
+    tokens_len_list: List[int] = []
+
+    # get all equation lines
+    equation_lines_bbox: List[List[float]] = [
+        b.bbox for b in page_types if b.block_type == "Formula"
+    ]
+    if len(equation_lines_bbox) == 0:
+        # current page do not contain equation
+        return [], []
+
+    # current page contain equation
+    while i < len(page.blocks):
+        # current block object
+        block_obj = page.blocks[i]
+        # check if the block contains an equation
+        if not block_obj.contains_equation(equation_lines_bbox):
+            i += 1
+            continue
+
+        # cache first equation
+        equation_blocks: List[Tuple[int, Block]] = [(i, block_obj)]
+        equation_block_text = block_obj.prelim_text
+
+        # Merge surrounding blocks
+        if i > 0:
+            # Merge previous blocks
+            j = i - 1
+            prev_block = page.blocks[j]
+            prev_bbox = prev_block.bbox
+            while (
+                (
+                    is_in_same_line(prev_bbox, block_obj.bbox)
+                    or prev_block.contains_equation(equation_lines_bbox)
+                )
+                and j >= 0
+                and j not in equation_blocks_index_set
+            ):
+                # block_bbox = merge_boxes(prev_bbox, block_bbox)
+
+                # check if tokens is overwhelm
+                prelim_block_text = prev_block.prelim_text + " " + equation_block_text
+                if (
+                    get_tokens_len(prelim_block_text, nougat_model)
+                    >= settings.NOUGAT_MODEL_MAX
+                ):
+                    break
+
+                equation_block_text = prelim_block_text
+                equation_blocks.append((j, prev_block))
+                j -= 1
+                prev_block = page.blocks[j]
+                prev_bbox = prev_block.bbox
+
+        if i < len(page.blocks) - 1:
+            # Merge subsequent blocks
+            i = i + 1
+            next_block = page.blocks[i]
+            next_bbox = next_block.bbox
+            while (
+                is_in_same_line(block_obj.bbox, next_bbox)
+                or next_block.contains_equation(equation_lines_bbox)
+                or len(equation_blocks) <= 3
+            ) and i <= len(page.blocks) - 1:
+                # block_bbox = merge_boxes(block_bbox, next_bbox)
+
+                # check if tokens is overwhelm
+                prelim_block_text = equation_block_text + " " + next_block.prelim_text
+                if (
+                    get_tokens_len(prelim_block_text, nougat_model)
+                    >= settings.NOUGAT_MODEL_MAX
+                ):
+                    break
+
+                equation_block_text = prelim_block_text
+                equation_blocks.append((i, next_block))
+                i += 1
+                next_block = page.blocks[i]
+                next_bbox = next_block.bbox
+
+        tokens_len = get_tokens_len(equation_block_text, nougat_model)
+        equation_blocks_index = sorted(([sb[0] for sb in equation_blocks]))
+        if tokens_len < settings.NOUGAT_MODEL_MAX:
+            # Get indices of all blocks to merge
+            equation_blocks_index_list.append(equation_blocks_index)
+            tokens_len_list.append(tokens_len)
+            equation_blocks_index_set.update(equation_blocks_index)
+        else:
+            # Reset i to the original value
+            i = equation_blocks[0][0]
+
+        i += 1
+
+    return equation_blocks_index_list, tokens_len_list
+
+
+def get_bbox(page: Page, region: List[int]):
+    block_bboxes: List[List[float]] = []
+    merged_block_bbox: List[float] = None
+    for idx in region:
+        block = page.blocks[idx]
+        bbox = block.bbox
+        if merged_block_bbox is None:
+            merged_block_bbox = bbox
+        else:
+            merged_block_bbox = merge_boxes(merged_block_bbox, bbox)
+        block_bboxes.append(bbox)
+    return block_bboxes, merged_block_bbox
+
+
+def add_latex_fences(text):
     # Replace block equations: \[ ... \] with $$...$$
     text = re.sub(r"\\\[(.*?)\\\]", r"$$\1$$\n", text)
 
@@ -85,14 +204,18 @@ def replace_latex_fences(text):
     return text
 
 
-def get_nougat_text_batched(images, reformat_region_lens, nougat_model, batch_size):
-    if len(images) == 0:
+def process(
+    equation_image_list: List[io.BytesIO],
+    equation_token_list: List[int],
+    nougat_model,
+    batch_size,
+):
+    if len(equation_image_list) == 0:
         return []
 
-    predictions = [""] * len(images)
-
+    predictions: List[str] = [""] * len(equation_image_list)
     dataset = ImageDataset(
-        images,
+        equation_image_list,
         partial(nougat_model.encoder.prepare_input, random_padding=False),
     )
 
@@ -106,8 +229,8 @@ def get_nougat_text_batched(images, reformat_region_lens, nougat_model, batch_si
     for idx, sample in enumerate(dataloader):
         # Dynamically set max length to save inference time
         min_idx = idx * batch_size
-        max_idx = min(min_idx + batch_size, len(images))
-        max_length = max(reformat_region_lens[min_idx:max_idx])
+        max_idx = min(min_idx + batch_size, len(equation_image_list))
+        max_length = max(equation_token_list[min_idx:max_idx])
         max_length = min(max_length, settings.NOUGAT_MODEL_MAX)
         max_length += settings.NOUGAT_TOKEN_BUFFER
 
@@ -117,189 +240,90 @@ def get_nougat_text_batched(images, reformat_region_lens, nougat_model, batch_si
         )
         for j, output in enumerate(model_output["predictions"]):
             disclaimer = ""
-            token_count = get_total_nougat_tokens(output, nougat_model)
+            token_count = get_tokens_len(output, nougat_model)
             if token_count >= max_length - 1:
                 disclaimer = "[TRUNCATED]"
 
             image_idx = idx * batch_size + j
             predictions[image_idx] = (
-                replace_latex_fences(markdown_compatible(output)) + disclaimer
+                add_latex_fences(markdown_compatible(output)) + disclaimer
             )
     return predictions
 
 
-def get_total_nougat_tokens(text, nougat_model):
-    tokenizer = nougat_model.decoder.tokenizer
-    tokens = tokenizer(text)
-    return len(tokens["input_ids"])
-
-
-def find_page_equation_regions(page: Page, page_types: List[BlockType], nougat_model):
-    i = 0
-    reformatted_blocks = set()
-    reformat_regions = []
-    block_lens = []
-
-    equation_lines = [b.bbox for b in page_types if b.block_type == "Formula"]
-    if len(equation_lines) == 0:
-        return [], []
-
-    while i < len(page.blocks):
-        block_obj = page.blocks[i]
-        block_text = block_obj.prelim_text
-        block_bbox = block_obj.bbox
-        # Check if the block contains an equation
-        if not block_obj.contains_equation(equation_lines):
-            i += 1
-            continue
-
-        # contains equation
-        selected_blocks = [(i, block_obj)]
-        if i > 0:
-            # Find previous blocks to merge
-            j = i - 1
-            prev_block_obj = page.blocks[j]
-            prev_block_bbox = prev_block_obj.bbox
-            while (
-                (
-                    should_merge_blocks(prev_block_bbox, block_bbox)
-                    or prev_block_obj.contains_equation(equation_lines)
-                )
-                and j >= 0
-                and j not in reformatted_blocks
-            ):
-                block_bbox = merge_boxes(prev_block_bbox, block_bbox)
-                prev_block_obj = page.blocks[j]
-                prev_block_bbox = prev_block_obj.bbox
-                prelim_block_text = prev_block_obj.prelim_text + " " + block_text
-                if (
-                    get_total_nougat_tokens(prelim_block_text, nougat_model)
-                    >= settings.NOUGAT_MODEL_MAX
-                ):
-                    break
-
-                block_text = prelim_block_text
-                selected_blocks.append((j, prev_block_obj))
-                j -= 1
-
-        if i < len(page.blocks) - 1:
-            # Merge subsequent boxes
-            next_block = page.blocks[i + 1]
-            next_bbox = next_block.bbox
-            while (
-                should_merge_blocks(block_bbox, next_bbox)
-                or next_block.contains_equation(equation_lines)
-                or len(selected_blocks) <= 3
-            ) and i + 1 < len(page.blocks):
-                block_bbox = merge_boxes(block_bbox, next_bbox)
-                prelim_block_text = block_text + " " + next_block.prelim_text
-                if (
-                    get_total_nougat_tokens(prelim_block_text, nougat_model)
-                    >= settings.NOUGAT_MODEL_MAX
-                ):
-                    break
-
-                block_text = prelim_block_text
-                i += 1
-                selected_blocks.append((i, next_block))
-                if i + 1 < len(page.blocks):
-                    next_block = page.blocks[i + 1]
-                    next_bbox = next_block.bbox
-
-        total_tokens = get_total_nougat_tokens(block_text, nougat_model)
-        ordered_blocks = sorted(([sb[0] for sb in selected_blocks]))
-        if total_tokens < settings.NOUGAT_MODEL_MAX:
-            # Get indices of all blocks to merge
-            reformat_regions.append(ordered_blocks)
-            block_lens.append(total_tokens)
-            reformatted_blocks.update(ordered_blocks)
-        else:
-            # Reset i to the original value
-            i = selected_blocks[0][0]
-
-        i += 1
-
-    return reformat_regions, block_lens
-
-
-def get_bboxes_for_region(page, region):
-    block_bboxes = []
-    merged_block_bboxes = None
-    for idx in region:
-        block = page.blocks[idx]
-        bbox = block.bbox
-        if merged_block_bboxes is None:
-            merged_block_bboxes = bbox
-        else:
-            merged_block_bboxes = merge_boxes(merged_block_bboxes, bbox)
-        block_bboxes.append(bbox)
-    return block_bboxes, merged_block_bboxes
-
-
-def replace_blocks_with_nougat_predictions(
-    page_blocks: Page, merged_boxes, reformat_regions, predictions, pnum, nougat_model
+def replace_blocks(
+    page: Page,
+    merged_equation_boxes: List[List[float]],
+    equation_region_list: List[List[int]],
+    predictions: List[str],
+    pnum: int,
+    nougat_model,
 ):
-    new_blocks = []
-    converted_spans = []
-    current_region = 0
-    idx = 0
-    success_count = 0
-    fail_count = 0
-    while idx < len(page_blocks.blocks):
-        block = page_blocks.blocks[idx]
+    region_idx: int = 0
+    block_idx: int = 0
+    success_count: int = 0
+    fail_count: int = 0
+    replaced_blocks: List[Block] = []
+    converted_spans: List[Span] = []
+    while block_idx < len(page.blocks):
+        block = page.blocks[block_idx]
         if (
-            current_region >= len(reformat_regions)
-            or idx < reformat_regions[current_region][0]
+            region_idx >= len(equation_region_list)
+            or block_idx < equation_region_list[region_idx][0]
         ):
-            new_blocks.append(block)
-            idx += 1
+            replaced_blocks.append(block)
+            block_idx += 1
             continue
 
         orig_block_text = " ".join(
             [
-                page_blocks.blocks[i].prelim_text
-                for i in reformat_regions[current_region]
+                page.blocks[b_idx].prelim_text
+                for b_idx in equation_region_list[region_idx]
             ]
         )
-        nougat_text = predictions[current_region]
+        current_region_prediction = predictions[region_idx]
         conditions = [
-            len(nougat_text) > 0,
+            len(current_region_prediction) > 0,
             # not any(
-            #     [word in nougat_text for word in settings.NOUGAT_HALLUCINATION_WORDS]
+            #     [word in current_region_prediction for word in settings.NOUGAT_HALLUCINATION_WORDS]
             # ),
-            get_total_nougat_tokens(nougat_text, nougat_model)
+            get_tokens_len(current_region_prediction, nougat_model)
             < settings.NOUGAT_MODEL_MAX,  # Make sure we didn't run to the token max
-            len(nougat_text) > len(orig_block_text) * 0.8,
-            len(nougat_text.strip()) > 0,
+            len(current_region_prediction) > len(orig_block_text) * 0.8,
+            len(current_region_prediction.strip()) > 0,
         ]
 
-        idx = reformat_regions[current_region][-1] + 1
+        block_idx = equation_region_list[region_idx][-1] + 1
         if not all(conditions):
             fail_count += 1
             converted_spans.append(None)
-            for i in reformat_regions[current_region]:
-                new_blocks.append(page_blocks.blocks[i])
+            for i in equation_region_list[region_idx]:
+                replaced_blocks.append(page.blocks[i])
         else:
             success_count += 1
-            block_line = Line(
+            line = Line(
                 spans=[
                     Span(
-                        text=nougat_text,
-                        bbox=merged_boxes[current_region],
-                        span_id=f"{pnum}_{idx}_fixeq",
+                        text=current_region_prediction,
+                        bbox=merged_equation_boxes[region_idx],
+                        span_id=f"{pnum}_{block_idx}_fixeq",
                         font="Latex",
                         color=0,
                         block_type="Formula",
                     )
                 ],
-                bbox=merged_boxes[current_region],
+                bbox=merged_equation_boxes[region_idx],
             )
-            converted_spans.append(deepcopy(block_line.spans[0]))
-            new_blocks.append(
-                Block(lines=[block_line], bbox=merged_boxes[current_region], pnum=pnum)
+            converted_spans.append(deepcopy(line.spans[0]))
+            replaced_blocks.append(
+                Block(
+                    lines=[line],
+                    bbox=merged_equation_boxes[region_idx],
+                    pnum=pnum,
+                )
             )
-        current_region += 1
-    return new_blocks, success_count, fail_count, converted_spans
+        region_idx += 1
+    return replaced_blocks, success_count, fail_count, converted_spans
 
 
 def replace_equations(
@@ -313,76 +337,86 @@ def replace_equations(
     unsuccessful_ocr = 0
     successful_ocr = 0
 
-    # Find potential equation regions, and length of text in each region
-    reformat_regions = []
-    reformat_region_lens = []
+    # 1. Find potential equation regions, and length of text in each region
+    doc_equation_region_list: List[List[List[int]]] = []
+    doc_equation_region_lens: List[List[int]] = []
     for pnum, page in enumerate(pages):
-        regions, region_lens = find_page_equation_regions(
+        regions: List[List[int]] = []
+        region_lens: List[int] = []
+        regions, region_lens = get_page_equation_regions(
             page, pages_types[pnum], nougat_model
         )
-        reformat_regions.append(regions)
-        reformat_region_lens.append(region_lens)
+        doc_equation_region_list.append(regions)
+        doc_equation_region_lens.append(region_lens)
 
-    eq_count = sum([len(x) for x in reformat_regions])
+    eq_count = sum([len(x) for x in doc_equation_region_list])
 
-    # Get images for each region
-    flat_reformat_region_lens = [
-        item for sublist in reformat_region_lens for item in sublist
+    # 2. Get images for each region
+    flat_equation_region_lens: List[int] = [
+        item for sublist in doc_equation_region_lens for item in sublist
     ]
-    images = []
-    merged_boxes = []
-    for page_idx, reformat_regions_page in enumerate(reformat_regions):
+    doc_equation_images: List[io.BytesIO] = []
+    doc_merged_equation_bbox: List[List[float]] = []
+    for page_idx, page_equation_region_index in enumerate(doc_equation_region_list):
         page_obj = doc[page_idx]
-        for index, reformat_region in enumerate(reformat_regions_page):
-            block_bboxes, merged_block_bboxes = get_bboxes_for_region(
-                pages[page_idx], reformat_region
+        for index, equation_region_index in enumerate(page_equation_region_index):
+            # foreach equation region in one page
+            #   "equation_region_index" is a list of block indices
+            equation_bboxes, merged_equation_bbox = get_bbox(
+                pages[page_idx], equation_region_index
             )
-            png_image = get_nougat_image(page_obj, merged_block_bboxes, block_bboxes)
+            equation_image: io.BytesIO = get_equation_image(
+                page_obj, merged_equation_bbox, equation_bboxes
+            )
 
             if debug_mode:
                 # Save equation image
                 file_name = f"equation_{page_idx}_{index}.bmp"
                 save_path = os.path.join("./", file_name)
                 with open(save_path, "wb") as f:
-                    f.write(png_image.getvalue())
+                    f.write(equation_image.getvalue())
 
-            images.append(png_image)
-            merged_boxes.append(merged_block_bboxes)
+            doc_equation_images.append(equation_image)
+            doc_merged_equation_bbox.append(merged_equation_bbox)
 
-    # Make batched predictions
-    predictions = get_nougat_text_batched(
-        images, flat_reformat_region_lens, nougat_model, batch_size
+    # 3. Make batched predictions
+    predictions: List[str] = process(
+        doc_equation_images, flat_equation_region_lens, nougat_model, batch_size
     )
 
-    # Replace blocks with predictions
+    # 4. Replace blocks with predictions
     page_start = 0
     converted_spans = []
-    for page_idx, reformat_regions_page in enumerate(reformat_regions):
-        page_predictions = predictions[
-            page_start : page_start + len(reformat_regions_page)
+    for page_idx, page_equation_region_list in enumerate(doc_equation_region_list):
+        # get predictions for current page
+        page_predictions: List[str] = predictions[
+            page_start : page_start + len(page_equation_region_list)
         ]
-        page_boxes = merged_boxes[page_start : page_start + len(reformat_regions_page)]
+        # get boxes for current page
+        page_merged_equation_bbox: List[List[float]] = doc_merged_equation_bbox[
+            page_start : page_start + len(page_equation_region_list)
+        ]
         (
             new_page_blocks,
             success_count,
             fail_count,
             converted_span,
-        ) = replace_blocks_with_nougat_predictions(
+        ) = replace_blocks(
             pages[page_idx],
-            page_boxes,
-            reformat_regions_page,
+            page_merged_equation_bbox,
+            page_equation_region_list,
             page_predictions,
             page_idx,
             nougat_model,
         )
         converted_spans.extend(converted_span)
         pages[page_idx].blocks = new_page_blocks
-        page_start += len(reformat_regions_page)
+        page_start += len(page_equation_region_list)
         successful_ocr += success_count
         unsuccessful_ocr += fail_count
 
     # If debug mode is on, dump out conversions for comparison
-    dump_nougat_debug_data(doc, images, converted_spans)
+    dump_nougat_debug_data(doc, doc_equation_images, converted_spans)
 
     return pages, {
         "successful_ocr": successful_ocr,
