@@ -1,7 +1,7 @@
 import fitz as pymupdf
 
-def should_merge_blocks(box1, box2, tol=5):
-    # Within tol y px, and to the right within tol px
+def is_in_same_line(box1, box2, tol=5):
+    # box2 = box1 + (slid to right)
     merge = [
         box2[0] > box1[0], # After in the x coordinate
         abs(box2[1] - box1[1]) < tol, # Within tol y px

@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import logging
 from typing import List
 
 from transformers import LayoutLMv3ForTokenClassification
@@ -107,10 +108,10 @@ def get_page_encoding(page, page_blocks: Page):
 
         # Handle case when boxes are 0 or less width or height
         if box[2] <= box[0]:
-            print("Zero width box found, cannot convert properly")
+            logging.error("Zero width box found, cannot convert properly")
             raise ValueError
         if box[3] <= box[1]:
-            print("Zero height box found, cannot convert properly")
+            logging.error("Zero height box found, cannot convert properly")
             raise ValueError
         boxes.append(box)
         text.append(line.prelim_text)

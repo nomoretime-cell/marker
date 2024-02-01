@@ -1,4 +1,5 @@
 from collections import Counter
+import logging
 from typing import List, Optional, Tuple
 
 from pydantic import BaseModel, field_validator
@@ -177,7 +178,7 @@ class Page(BboxElement):
 
     def add_types(self, page_types):
         if len(page_types) != len(self.get_all_lines()):
-            print(
+            logging.error(
                 f"Warning: Number of detected lines {len(page_types)} does not match number of lines {len(self.get_all_lines())}"
             )
 

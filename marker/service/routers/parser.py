@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 import json
@@ -34,7 +35,7 @@ async def post_parser(parser_request: ParserRequest) -> dict:
         debug_mode=parser_request.isDebug,
     )
     execution_time: float = time.time() - start_time
-    print(
+    logging.info(
         f"Function '{convert_single_pdf.__name__}' took {execution_time} seconds to execute."
     )
 
@@ -53,9 +54,9 @@ async def post_parser(parser_request: ParserRequest) -> dict:
     return ParserResponse(parser_request.requestId, "200", "success").to_dict()
 
 
-@router.post("/v1/parser/", tags=["pdf parser"])
+@router.post("/v1/parser/", tags=["doc parser"])
 async def post_v1_parser(parser_request: ParserRequest) -> dict:
-    print(f"POST request, thread id: {threading.current_thread().ident}")
+    logging.info(f"POST request, thread id: {threading.current_thread().ident}")
     local_original_file: str = parser_request.requestId + "." + parser_request.fileType
     local_result_file: str = parser_request.requestId + ".md"
     download_presigned_file(
@@ -72,7 +73,7 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
         debug_mode=parser_request.isDebug,
     )
     execution_time: float = time.time() - start_time
-    print(
+    logging.info(
         f"Function '{convert_single_pdf.__name__}' took {execution_time} seconds to execute."
     )
 

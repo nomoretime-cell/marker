@@ -5,7 +5,7 @@ WORKDIR /marker
 COPY model/ /marker/model
 COPY marker/ /marker/marker
 COPY *.py poetry.lock pyproject.toml entrypoint.sh ./
-COPY local-prod.env local.env
+COPY prod.env local.env
 COPY nltk.tar.gz /tmp/nltk.tar.gz
 RUN mkdir -p /root/nltk_data && \
     tar xzf /tmp/nltk.tar.gz -C /
