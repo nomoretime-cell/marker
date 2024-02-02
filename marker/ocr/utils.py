@@ -44,18 +44,25 @@ def font_flags_decomposer(flags):
     """Make font flags human readable."""
     l = []
     if flags & 2 ** 0:
+        # 上标
         l.append("superscript")
     if flags & 2 ** 1:
+        # 斜体
         l.append("italic")
     if flags & 2 ** 2:
+        # 笔画粗细不同
         l.append("serifed")
     else:
+        # 笔划粗细相同
         l.append("sans")
     if flags & 2 ** 3:
+        # 等宽字体
         l.append("monospaced")
     else:
+        # 比例字体
         l.append("proportional")
     if flags & 2 ** 4:
+        # 粗体
         l.append("bold")
     return "_".join(l)
 

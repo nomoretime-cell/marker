@@ -17,6 +17,7 @@ from marker.settings import settings
 from marker.schema import Page, Span, Line, Block, BlockType
 from nougat.utils.device import move_to_device
 import os
+import fitz
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -135,8 +136,9 @@ def get_page_equation_regions(page: Page, page_types: List[BlockType], nougat_mo
                 equation_block_text = prelim_block_text
                 equation_blocks.append((j, prev_block))
                 j -= 1
-                prev_block = page.blocks[j]
-                prev_bbox = prev_block.bbox
+                if j >= 0:
+                    prev_block = page.blocks[j]
+                    prev_bbox = prev_block.bbox
 
         if i < len(page.blocks) - 1:
             # Merge subsequent blocks
@@ -161,8 +163,9 @@ def get_page_equation_regions(page: Page, page_types: List[BlockType], nougat_mo
                 equation_block_text = prelim_block_text
                 equation_blocks.append((i, next_block))
                 i += 1
-                next_block = page.blocks[i]
-                next_bbox = next_block.bbox
+                if i <= len(page.blocks) - 1:
+                    next_block = page.blocks[i]
+                    next_bbox = next_block.bbox
 
         tokens_len = get_tokens_len(equation_block_text, nougat_model)
         equation_blocks_index = sorted(([sb[0] for sb in equation_blocks]))
@@ -327,7 +330,7 @@ def replace_blocks(
 
 
 def replace_equations(
-    doc,
+    doc: fitz.Document,
     pages: List[Page],
     pages_types: List[List[BlockType]],
     nougat_model,
@@ -358,7 +361,7 @@ def replace_equations(
     doc_equation_images: List[io.BytesIO] = []
     doc_merged_equation_bbox: List[List[float]] = []
     for page_idx, page_equation_region_index in enumerate(doc_equation_region_list):
-        page_obj = doc[page_idx]
+        doc_page = doc[page_idx]
         for index, equation_region_index in enumerate(page_equation_region_index):
             # foreach equation region in one page
             #   "equation_region_index" is a list of block indices
@@ -366,7 +369,7 @@ def replace_equations(
                 pages[page_idx], equation_region_index
             )
             equation_image: io.BytesIO = get_equation_image(
-                page_obj, merged_equation_bbox, equation_bboxes
+                doc_page, merged_equation_bbox, equation_bboxes
             )
 
             if debug_mode:
@@ -418,8 +421,119 @@ def replace_equations(
     # If debug mode is on, dump out conversions for comparison
     dump_nougat_debug_data(doc, doc_equation_images, converted_spans)
 
+    for page_idx, page in enumerate(pages):
+        replace_inline_equations(page_idx, page, doc, nougat_model, debug_mode)
+
     return pages, {
         "successful_ocr": successful_ocr,
         "unsuccessful_ocr": unsuccessful_ocr,
         "equations": eq_count,
     }
+
+
+def if_contain_equation_v1(line: Line) -> bool:
+    contain_formula = False
+    # LibertineMathMI_italic_serifed_proportional
+    # CMSY10_italic_serifed_proportional
+    for span in line.spans:
+        if span.block_type == "Text" and (
+            "Math".lower() in span.font.lower() or "CMSY10".lower() in span.font.lower()
+        ):
+            contain_formula = True
+            break
+    return contain_formula
+
+
+def if_contain_equation_v2(line: Line) -> bool:
+    contain_formula = False
+    size_set: set = set()
+    flags_set: set = set()
+    block_type: str = ""
+    for span in line.spans:
+        # condition1: math font
+        if span.block_type == "Text" and (
+            "Math".lower() in span.font.lower() or "CMSY10".lower() in span.font.lower()
+        ):
+            contain_formula = True
+            break
+        # condition2: diff size and diff flags
+        size_set.add(span.size)
+        flags_set.add(span.flags)
+        block_type = span.block_type
+    if block_type == "Text" and len(size_set) > 1 and len(flags_set) > 1:
+        contain_formula = True
+    return contain_formula
+
+
+def replace_inline_equations(
+    pnum: int, page: Page, doc: fitz.Document, nougat_model, debug_mode: bool = False
+):
+    for block_idx, block in enumerate(page.blocks):
+        for line_index, line in enumerate(block.lines):
+            # check if line contain inline equation
+            if if_contain_equation_v2(line):
+                line_bboxes: List[List[float]] = []
+                merged_line_bbox: List[float] = None
+
+                # get prev & next line's bbox
+                prev_bbox: List[float] = None
+                next_bbox: List[float] = None
+                if (line_index - 1) >= 0 and (line_index - 1) <= (len(block.lines) - 1):
+                    prev_bbox = block.lines[line_index - 1].bbox
+                if (line_index + 1) >= 0 and (line_index + 1) <= (len(block.lines) - 1):
+                    next_bbox = block.lines[line_index + 1].bbox
+                current_bbox = block.lines[line_index].bbox
+
+                # resized line bbox
+                x1 = current_bbox[0]
+                y1 = (
+                    current_bbox[1]
+                    if prev_bbox is None or current_bbox[1] > prev_bbox[3]
+                    else current_bbox[1] + (prev_bbox[3] - current_bbox[1]) / 2
+                )
+                x2 = current_bbox[2]
+                y2 = (
+                    current_bbox[3]
+                    if next_bbox is None or next_bbox[1] > current_bbox[3]
+                    else next_bbox[1] + (current_bbox[3] - next_bbox[1]) / 2
+                )
+                merged_line_bbox = [x1, y1, x2, y2]
+                line_bboxes.append(merged_line_bbox)
+
+                # get line image
+                equation_images: List[io.BytesIO] = []
+                equation_token_list: List[int] = []
+                equation_image: io.BytesIO = get_equation_image(
+                    doc[pnum], merged_line_bbox, line_bboxes
+                )
+
+                # get result from nougat
+                equation_images.append(equation_image)
+                equation_token_list.append(settings.NOUGAT_MODEL_MAX)
+                predictions: List[str] = process(
+                    equation_images, equation_token_list, nougat_model, 1
+                )
+
+                if debug_mode:
+                    # Save equation image
+                    file_name = f"inline_equation_{pnum}_{block_idx}_{line_index}.bmp"
+                    save_path = os.path.join("./", file_name)
+                    with open(save_path, "wb") as f:
+                        f.write(equation_image.getvalue())
+
+                    with open("inline_equation.md", "a") as file:
+                        file.write(
+                            f"{pnum}_{block_idx}_{line_index}  {predictions}  \n"
+                        )
+
+                # replace line's text
+                block.lines[line_index].spans = [
+                    Span(
+                        text=predictions[0],
+                        bbox=line.bbox,
+                        span_id=f"{pnum}_{block_idx}_Inline_Latex",
+                        font="Inline_Latex",
+                        color=0,
+                        block_type="Text",
+                    )
+                ]
