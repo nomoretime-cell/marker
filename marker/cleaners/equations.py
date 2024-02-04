@@ -10,6 +10,7 @@ from nougat.utils.checkpoint import get_checkpoint
 import re
 from PIL import Image, ImageDraw
 from nougat.utils.dataset import ImageDataset
+from marker.analyzer.spans import SpanType, SpansAnalyzer
 
 from marker.bbox import is_in_same_line, merge_boxes
 from marker.debug.data import dump_nougat_debug_data
@@ -333,6 +334,7 @@ def replace_equations(
     doc: fitz.Document,
     pages: List[Page],
     pages_types: List[List[BlockType]],
+    spans_analyzer: SpansAnalyzer,
     nougat_model,
     batch_size=settings.NOUGAT_BATCH_SIZE,
     debug_mode: bool = False,
@@ -422,7 +424,9 @@ def replace_equations(
     dump_nougat_debug_data(doc, doc_equation_images, converted_spans)
 
     for page_idx, page in enumerate(pages):
-        replace_inline_equations(page_idx, page, doc, nougat_model, debug_mode)
+        replace_inline_equations(
+            page_idx, page, doc, spans_analyzer, nougat_model, debug_mode
+        )
 
     return pages, {
         "successful_ocr": successful_ocr,
@@ -465,8 +469,24 @@ def if_contain_equation_v2(line: Line) -> bool:
     return contain_formula
 
 
+def if_contain_equation_v3(line: Line, spans_analyzer: SpansAnalyzer) -> bool:
+    contain_formula = False
+    for span in line.spans:
+        if span.block_type == "Text" and (
+            span.font != spans_analyzer.get_most_font_type(SpanType.Text)
+        ):
+            contain_formula = True
+            break
+    return contain_formula
+
+
 def replace_inline_equations(
-    pnum: int, page: Page, doc: fitz.Document, nougat_model, debug_mode: bool = False
+    pnum: int,
+    page: Page,
+    doc: fitz.Document,
+    spans_analyzer: SpansAnalyzer,
+    nougat_model,
+    debug_mode: bool = False,
 ):
     for block_idx, block in enumerate(page.blocks):
         for line_index, line in enumerate(block.lines):

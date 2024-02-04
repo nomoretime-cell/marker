@@ -168,10 +168,10 @@ def convert_single_pdf(
 
     # Get text font size
     spans: List[Span] = get_all_spans(pages)
-    sa = SpansAnalyzer(spans)
-    if len(sa.type2fontSize[SpanType.Text.value]) > 0:
+    spans_analyzer = SpansAnalyzer(spans)
+    if len(spans_analyzer.type2fontSize[SpanType.Text.value]) > 0:
         for page in pages:
-            page.text_font = sa.type2fontSize[SpanType.Text.value][0].font_size
+            page.text_font = spans_analyzer.type2fontSize[SpanType.Text.value][0].font_size
     # update_equations_in_spans(pages, pages_types)
 
     # Dump debug data if flags are set
@@ -203,6 +203,7 @@ def convert_single_pdf(
         doc,
         pages,
         pages_types,
+        spans_analyzer,
         nougat_model,
         batch_size=settings.NOUGAT_BATCH_SIZE * parallel_factor,
         debug_mode=debug_mode,
