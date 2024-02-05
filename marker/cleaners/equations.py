@@ -428,7 +428,7 @@ def replace_equations(
     for page_idx, page in enumerate(pages):
         if page_idx == 0:
             continue
-        replace_inline_equations(page_idx, page, doc, spans_analyzer, model, debug_mode)
+        replace_block_equations(page_idx, page, doc, spans_analyzer, model, debug_mode)
 
     return pages, {
         "successful_ocr": successful_ocr,
@@ -535,7 +535,6 @@ def replace_inline_equations(
                 equation_images.append(equation_image)
                 tokens_len = get_tokens_len(line.prelim_text, nougat_model)
                 equation_token_list.append(tokens_len)
-                equation_token_list.append(settings.NOUGAT_MODEL_MAX)
                 predictions: List[str] = process(
                     equation_images, equation_token_list, nougat_model, 1
                 )
@@ -563,3 +562,67 @@ def replace_inline_equations(
                         block_type="Text",
                     )
                 ]
+
+
+def replace_block_equations(
+    pnum: int,
+    page: Page,
+    doc: fitz.Document,
+    spans_analyzer: SpansAnalyzer,
+    nougat_model,
+    debug_mode: bool = False,
+):
+    for block_idx, block in enumerate(page.blocks):
+        containe_equations = False
+        for line in block.lines:
+            # check if line contain inline equation
+            if if_contain_equation_v2(line):
+                containe_equations = True
+                break
+        if not containe_equations:
+            continue
+
+        merged_bbox: List[float] = block.bbox
+        bboxes: List[List[float]] = [merged_bbox]
+
+        # get block image
+        equation_images: List[io.BytesIO] = []
+        equation_token_list: List[int] = []
+        equation_image: io.BytesIO = get_equation_image(doc[pnum], merged_bbox, bboxes)
+        if equation_image is None:
+            continue
+
+        # get result from nougat
+        equation_images.append(equation_image)
+        tokens_len = get_tokens_len(block.prelim_text, nougat_model)
+        equation_token_list.append(tokens_len)
+        predictions: List[str] = process(
+            equation_images, equation_token_list, nougat_model, 1
+        )
+
+        if debug_mode:
+            # Save equation image
+            file_name = f"inline_equation_{pnum}_{block_idx}.bmp"
+            save_path = os.path.join("./", file_name)
+            with open(save_path, "wb") as f:
+                f.write(equation_image.getvalue())
+
+            with open("inline_equation.md", "a") as file:
+                file.write(f"{pnum}_{block_idx}  {predictions}  \n")
+
+        # replace block's text
+        page.blocks[block_idx].lines = [
+            Line(
+                spans=[
+                    Span(
+                        text=predictions[0],
+                        bbox=merged_bbox,
+                        span_id=f"{pnum}_{block_idx}_fixeq",
+                        font="Latex",
+                        color=0,
+                        block_type="Formula",
+                    )
+                ],
+                bbox=merged_bbox,
+            )
+        ]
