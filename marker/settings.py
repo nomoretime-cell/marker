@@ -75,6 +75,13 @@ class Settings(BaseSettings):
     NOUGAT_MODEL_NAME: Optional[str] = None # Name of the model to use
     NOUGAT_MODEL_TAG: str = "0.1.0-small" # Tag of the model to use
     NOUGAT_BATCH_SIZE: int = 6 if TORCH_DEVICE == "cuda" else 1 # Batch size for nougat, don't batch on cpu
+    
+    # Texify model
+    TEXIFY_MODEL_MAX: int = 384 # Max inference length for texify
+    TEXIFY_TOKEN_BUFFER: int = 256 # Number of tokens to buffer above max for texify
+    TEXIFY_DPI: int = 96 # DPI to render images at
+    TEXIFY_BATCH_SIZE: int = 1 if TORCH_DEVICE == "cpu" else 6 # Batch size for texify, don't batch on cpu
+    TEXIFY_MODEL_NAME: str = "vikp/texify"
 
     # Layout model
     BAD_SPAN_TYPES: List[str] = ["Caption", "Footnote", "Page-footer", "Page-header", "Picture", "Table"]
@@ -113,6 +120,11 @@ class Settings(BaseSettings):
     @property
     def MODEL_DTYPE(self) -> torch.dtype:
         return torch.bfloat16 if self.CUDA else torch.float32
+    
+    @computed_field
+    @property
+    def TEXIFY_DTYPE(self) -> torch.dtype:
+        return torch.float32 if self.TORCH_DEVICE == "cpu" else torch.float16
 
     class Config:
         env_file = find_dotenv("local.env")

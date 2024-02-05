@@ -1,6 +1,7 @@
 import io
 from copy import deepcopy
 from functools import partial
+import logging
 from typing import List, Tuple
 
 import torch
@@ -66,15 +67,20 @@ def get_mask_image(png_image, bbox: List[float], selected_bboxes: List[List[floa
 
 
 def get_equation_image(page, merged_block_bbox, block_bboxes):
-    pix = page.get_pixmap(dpi=settings.NOUGAT_DPI, clip=merged_block_bbox)
-    png = pix.pil_tobytes(format="BMP")
-    png_image = Image.open(io.BytesIO(png))
-    png_image = get_mask_image(png_image, merged_block_bbox, block_bboxes)
-    png_image = png_image.convert("RGB")
+    try:
+        pix = page.get_pixmap(dpi=settings.NOUGAT_DPI, clip=merged_block_bbox)
+        png = pix.pil_tobytes(format="BMP")
+        png_image = Image.open(io.BytesIO(png))
+        png_image = get_mask_image(png_image, merged_block_bbox, block_bboxes)
+        png_image = png_image.convert("RGB")
 
-    img_out = io.BytesIO()
-    png_image.save(img_out, format="BMP")
-    return img_out
+        img_out = io.BytesIO()
+        png_image.save(img_out, format="BMP")
+        return img_out
+
+    except Exception as exception:
+        logging.error(exception)
+        return None
 
 
 def get_tokens_len(text, nougat_model):
@@ -211,7 +217,7 @@ def add_latex_fences(text):
 def process(
     equation_image_list: List[io.BytesIO],
     equation_token_list: List[int],
-    nougat_model,
+    model,
     batch_size,
 ):
     if len(equation_image_list) == 0:
@@ -220,7 +226,7 @@ def process(
     predictions: List[str] = [""] * len(equation_image_list)
     dataset = ImageDataset(
         equation_image_list,
-        partial(nougat_model.encoder.prepare_input, random_padding=False),
+        partial(model.encoder.prepare_input, random_padding=False),
     )
 
     dataloader = torch.utils.data.DataLoader(
@@ -238,13 +244,11 @@ def process(
         max_length = min(max_length, settings.NOUGAT_MODEL_MAX)
         max_length += settings.NOUGAT_TOKEN_BUFFER
 
-        nougat_model.config.max_length = max_length
-        model_output = nougat_model.inference(
-            image_tensors=sample, early_stopping=False
-        )
+        model.config.max_length = max_length
+        model_output = model.inference(image_tensors=sample, early_stopping=False)
         for j, output in enumerate(model_output["predictions"]):
             disclaimer = ""
-            token_count = get_tokens_len(output, nougat_model)
+            token_count = get_tokens_len(output, model)
             if token_count >= max_length - 1:
                 disclaimer = "[TRUNCATED]"
 
@@ -335,7 +339,7 @@ def replace_equations(
     pages: List[Page],
     pages_types: List[List[BlockType]],
     spans_analyzer: SpansAnalyzer,
-    nougat_model,
+    model,
     batch_size=settings.NOUGAT_BATCH_SIZE,
     debug_mode: bool = False,
 ) -> (List[Page], dict):
@@ -348,9 +352,7 @@ def replace_equations(
     for pnum, page in enumerate(pages):
         regions: List[List[int]] = []
         region_lens: List[int] = []
-        regions, region_lens = get_page_equation_regions(
-            page, pages_types[pnum], nougat_model
-        )
+        regions, region_lens = get_page_equation_regions(page, pages_types[pnum], model)
         doc_equation_region_list.append(regions)
         doc_equation_region_lens.append(region_lens)
 
@@ -386,7 +388,7 @@ def replace_equations(
 
     # 3. Make batched predictions
     predictions: List[str] = process(
-        doc_equation_images, flat_equation_region_lens, nougat_model, batch_size
+        doc_equation_images, flat_equation_region_lens, model, batch_size
     )
 
     # 4. Replace blocks with predictions
@@ -412,7 +414,7 @@ def replace_equations(
             page_equation_region_list,
             page_predictions,
             page_idx,
-            nougat_model,
+            model,
         )
         converted_spans.extend(converted_span)
         pages[page_idx].blocks = new_page_blocks
@@ -424,9 +426,9 @@ def replace_equations(
     dump_nougat_debug_data(doc, doc_equation_images, converted_spans)
 
     for page_idx, page in enumerate(pages):
-        replace_inline_equations(
-            page_idx, page, doc, spans_analyzer, nougat_model, debug_mode
-        )
+        if page_idx == 0:
+            continue
+        replace_inline_equations(page_idx, page, doc, spans_analyzer, model, debug_mode)
 
     return pages, {
         "successful_ocr": successful_ocr,
@@ -505,17 +507,17 @@ def replace_inline_equations(
                 current_bbox = block.lines[line_index].bbox
 
                 # resized line bbox
-                x1 = current_bbox[0]
+                x1 = current_bbox[0] - 5
                 y1 = (
                     current_bbox[1]
                     if prev_bbox is None or current_bbox[1] > prev_bbox[3]
-                    else current_bbox[1] + (prev_bbox[3] - current_bbox[1]) / 2
+                    else (current_bbox[1] + ((prev_bbox[3] - current_bbox[1]) / 2)) + 1
                 )
-                x2 = current_bbox[2]
+                x2 = current_bbox[2] + 5
                 y2 = (
                     current_bbox[3]
                     if next_bbox is None or next_bbox[1] > current_bbox[3]
-                    else next_bbox[1] + (current_bbox[3] - next_bbox[1]) / 2
+                    else (next_bbox[1] + ((current_bbox[3] - next_bbox[1]) / 2)) - 1
                 )
                 merged_line_bbox = [x1, y1, x2, y2]
                 line_bboxes.append(merged_line_bbox)
@@ -526,9 +528,13 @@ def replace_inline_equations(
                 equation_image: io.BytesIO = get_equation_image(
                     doc[pnum], merged_line_bbox, line_bboxes
                 )
+                if equation_image is None:
+                    continue
 
                 # get result from nougat
                 equation_images.append(equation_image)
+                tokens_len = get_tokens_len(line.prelim_text, nougat_model)
+                equation_token_list.append(tokens_len)
                 equation_token_list.append(settings.NOUGAT_MODEL_MAX)
                 predictions: List[str] = process(
                     equation_images, equation_token_list, nougat_model, 1

@@ -6,7 +6,7 @@ authors = ["jibing.yjb@alibaba-inc.com"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"         # python version
+python = ">=3.9,<3.13,!=3.9.7" # python version
 scikit-learn = "^1.3.2"        # "from sklearn"
 Pillow = "^10.1.0"             # "from PIL" Python 图像处理库， Python Imaging Library (PIL) 的一个分支
 pytesseract = "^0.3.10"        # Tesseract OCR 引擎的库
@@ -33,6 +33,7 @@ fastapi = "^0.105.0"           # http server
 uvicorn = "^0.25.0"            # ASGI（Asynchronous Server Gateway Interface）服务器
 minio = "^7.2.0"               # minio
 gunicorn = "^21.2.0"
+texify = "^0.1.8"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
