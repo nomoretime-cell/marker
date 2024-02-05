@@ -57,9 +57,9 @@ def get_blocks(
 
     return_blocks = []
     span_id = 0
-    for index, block in enumerate(blocks):
+    for block_idx, block in enumerate(blocks):
         block_lines = []
-        for line in block["lines"]:
+        for line_idx, line in enumerate(block["lines"]):
             spans = []
             for i, s in enumerate(line["spans"]):
                 block_text = s["text"]
@@ -67,7 +67,7 @@ def get_blocks(
                 span_obj = Span(
                     text=block_text,
                     bbox=correct_rotation(bbox, page),
-                    span_id=f"{pnum}_{span_id}",
+                    span_id=f"{pnum}_{block_idx}_{line_idx}_{span_id}",
                     font=f"{s['font']}_{font_flags_decomposer(s['flags'])}",  # Add font flags to end of font
                     color=s["color"],
                     ascender=s["ascender"],
