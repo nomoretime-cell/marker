@@ -175,3 +175,4 @@ model/
 *.txt
 *.tar*
 presigned_url/
+test/zlib/
