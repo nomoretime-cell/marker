@@ -2,7 +2,7 @@ import logging
 import fitz as pymupdf
 from marker.analyzer.spans import SpanType, SpansAnalyzer
 
-from marker.cleaners.table import merge_table_blocks, create_new_tables
+from marker.cleaners.table import merge_table_blocks, replace_tables
 from marker.debug.data import dump_bbox_debug_data
 from marker.extract_text import get_pages
 from marker.cleaners.headers import filter_header_footer, filter_common_titles
@@ -171,7 +171,9 @@ def convert_single_pdf(
     spans_analyzer = SpansAnalyzer(spans)
     if len(spans_analyzer.type2fontSize[SpanType.Text.value]) > 0:
         for page in pages:
-            page.text_font = spans_analyzer.type2fontSize[SpanType.Text.value][0].font_size
+            page.text_font = spans_analyzer.type2fontSize[SpanType.Text.value][
+                0
+            ].font_size
     # update_equations_in_spans(pages, pages_types)
 
     # Dump debug data if flags are set
@@ -190,7 +192,8 @@ def convert_single_pdf(
     # indent_blocks(blocks)
 
     # Fix table blocks
-    # merge_table_blocks(pages)
+    merge_table_blocks(pages)
+    replace_tables(doc, pages, nougat_model, debug_mode)
     # table_count = create_new_tables(pages)
     # out_meta["block_stats"]["table"] = table_count
 
