@@ -4,6 +4,7 @@ import queue
 import uuid
 from client.config_reader import ConfigReader
 from client.http_client import HttpClient
+from client.presigned_client import PresignedClient
 from client.s3_client import S3Client
 
 if __name__ == "__main__":
@@ -26,23 +27,27 @@ if __name__ == "__main__":
             config_reader.get_value("OSS", "bucket"),
             config_reader.get_value("OSS", "folder_path"),
             config_reader.get_value("OSS", "out_folder_path"),
-            "pdf",
-            int(config_reader.get_value("MARKER", "limit")),
-            # None,
+            config_reader.get_value("OSS", "file_type").split(","),
+            None
+            if int(config_reader.get_value("Common", "limit")) <= 0
+            else int(config_reader.get_value("Common", "limit")),
             True,
             3600 * 24 * 7 - 3600,
         ),
     )
 
     # Consumer
-    http_client = HttpClient(config_reader.get_value("MARKER", "url"))
-    num_consumers = int(config_reader.get_value("MARKER", "concurrency"))
+    if config_reader.get_value("Common", "presigned_mode") == "True":
+        client = PresignedClient(int(config_reader.get_value("PresignedClient", "split_size")))
+    else:
+        client = HttpClient(config_reader.get_value("HttpClient", "url"))
+
+    num_consumers = int(config_reader.get_value("Common", "concurrency"))
     consumer_threads = [
         threading.Thread(
-            target=http_client.start_send_thread,
+            target=client.start_send_thread,
             args=(
                 message_queue,
-                config_reader.get_value("MARKER", "save_presigned_url"),
             ),
         )
         for _ in range(num_consumers)

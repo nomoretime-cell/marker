@@ -21,7 +21,7 @@ class S3Client:
         )
 
     def list_objects_path(
-        self, bucket_name: str, folder_path: str, file_type: str, limit: int = None
+        self, bucket_name: str, folder_path: str, file_type: list[str], limit: int = None
     ) -> Generator[str, None, None]:
         objects: list = self.minio_client.list_objects(
             bucket_name, prefix=folder_path, recursive=True
@@ -29,12 +29,25 @@ class S3Client:
         obj_count = 0
         for obj in objects:
             obj_name: str = obj.object_name
-            if not obj_name.endswith(file_type):
+            
+            contained = False
+            for type in file_type:
+                if obj_name.endswith(type):
+                    contained = True
+                    break
+            if not contained:
                 continue
             obj_count += 1
             yield obj_name
             if limit is not None and obj_count >= limit:
                 break
+
+    def replace_extension(self, filename, new_extension=".md"):
+        dot_index = filename.rfind(".")
+        if dot_index != -1:
+            return filename[:dot_index] + new_extension
+        else:
+            return filename + new_extension
 
     def prepare_object(
         self,
@@ -42,7 +55,7 @@ class S3Client:
         bucket_name: str,
         folder_path: str,
         out_folder_path: str,
-        file_type: str,
+        file_type: list[str],
         limit: int = None,
         signed: bool = False,
         expiration: int = 3600,
@@ -51,8 +64,8 @@ class S3Client:
             bucket_name, folder_path, file_type, limit
         ):
             file_original_name = object_path.rsplit("/", 1)[-1]
-            out_object_path = out_folder_path + file_original_name.replace(
-                file_type, "md"
+            out_object_path = out_folder_path + self.replace_extension(
+                file_original_name
             )
 
             if not signed:
