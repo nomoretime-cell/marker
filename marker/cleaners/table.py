@@ -103,7 +103,7 @@ def replace_tables(doc: fitz.Document, pages: List[Page], model, debug_mode: boo
                 set_block_type(prev_block, "TableCaption")
             elif next_block_type is not None and "Table" in next_block.prelim_text:
                 # merge next caption
-                merged_bbox = merge_boxes(block.bbox, next_block_type.bbox)
+                merged_bbox = merge_boxes(block.bbox, next_block.bbox)
                 set_block_type(next_block, "TableCaption")
             else:
                 set_block_type(block, "Picture")
