@@ -15,11 +15,11 @@ from marker.service.func.parser_func import (
 )
 from marker.service.struct.parser_struct import ParserRequest, ParserResponse
 
-router = APIRouter()
+parser_router = APIRouter()
 model_lst = load_all_models()
 
 
-@router.post("/internal/parser/", tags=["doc parser"])
+@parser_router.post("/internal/parser/", tags=["doc parser"])
 async def post_parser(parser_request: ParserRequest) -> dict:
     logging.info(f"POST request, thread id: {threading.current_thread().ident}")
     loop = asyncio.get_running_loop()
@@ -45,15 +45,13 @@ async def post_parser(parser_request: ParserRequest) -> dict:
 
     return ParserResponse(parser_request.requestId, "200", "success").to_dict()
 
-
-@router.post("/v1/parser/", tags=["doc parser"])
+@parser_router.post("/v1/parser/", tags=["doc parser"])
 async def post_v1_parser(parser_request: ParserRequest) -> dict:
     logging.info(f"POST request, thread id: {threading.current_thread().ident}")
     loop = asyncio.get_running_loop()
 
     # 1. prepare file path
-    local_original_file: str = parser_request.requestId + "." + parser_request.fileType
-    local_result_file: str = parser_request.requestId + ".md"
+    local_original_file: str = parser_request.requestId
 
     # 2. download file
     await loop.run_in_executor(
@@ -70,10 +68,11 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
             None,
             upload_presigned_file,
             parser_request.outFileUrl,
-            local_result_file,
+            "",
             full_text,
         )
     else:
+        local_result_file: str = parser_request.requestId + ".md"
         await loop.run_in_executor(None, save_file, local_result_file, full_text)
         await loop.run_in_executor(
             None, upload_presigned_file, parser_request.outFileUrl, local_result_file
