@@ -1,7 +1,7 @@
+import asyncio
 import logging
 import threading
 import time
-import json
 
 from fastapi import APIRouter
 from marker.convert import convert_single_pdf
@@ -19,54 +19,73 @@ router = APIRouter()
 model_lst = load_all_models()
 
 
-@router.post("/parser/", tags=["pdf parser"])
+@router.post("/internal/parser/", tags=["doc parser"])
 async def post_parser(parser_request: ParserRequest) -> dict:
-    download_file(
-        parser_request.inFileUrl,
-        parser_request.inFileUrl,
+    logging.info(f"POST request, thread id: {threading.current_thread().ident}")
+    loop = asyncio.get_running_loop()
+
+    # 1. download file
+    await loop.run_in_executor(
+        None, download_file, parser_request.inFileUrl, parser_request.inFileUrl
     )
 
-    start_time: float = time.time()
-    full_text, out_meta = convert_single_pdf(
-        parser_request.inFileUrl,
-        model_lst,
-        max_pages=parser_request.maxPages,
-        parallel_factor=parser_request.parallelFactor,
-        debug_mode=parser_request.isDebug,
+    # 2. process
+    full_text, out_meta = process(parser_request.inFileUrl, parser_request)
+
+    # 3. save file
+    await loop.run_in_executor(None, save_file, parser_request.outFileUrl, full_text)
+
+    # 4. upload markdown file
+    await loop.run_in_executor(
+        None, upload_file, parser_request.outFileUrl, parser_request.outFileUrl
     )
-    execution_time: float = time.time() - start_time
-    logging.info(
-        f"Function '{convert_single_pdf.__name__}' took {execution_time} seconds to execute."
-    )
-
-    with open(parser_request.outFileUrl, "w+", encoding="utf-8") as f:
-        f.write(full_text)
-
-    out_meta_filename = parser_request.outFileUrl.rsplit(".", 1)[0] + "_meta.json"
-    with open(out_meta_filename, "w+") as f:
-        f.write(json.dumps(out_meta, indent=4))
-
-    upload_file(parser_request.outFileUrl, parser_request.outFileUrl)
     if not parser_request.isDebug:
-        delete_file(out_meta_filename)
-        delete_file(parser_request.inFileUrl)
-        delete_file(parser_request.outFileUrl)
+        await loop.run_in_executor(None, delete_file, parser_request.inFileUrl)
+        await loop.run_in_executor(None, delete_file, parser_request.outFileUrl)
+
     return ParserResponse(parser_request.requestId, "200", "success").to_dict()
 
 
 @router.post("/v1/parser/", tags=["doc parser"])
 async def post_v1_parser(parser_request: ParserRequest) -> dict:
     logging.info(f"POST request, thread id: {threading.current_thread().ident}")
+    loop = asyncio.get_running_loop()
+
+    # 1. prepare file path
     local_original_file: str = parser_request.requestId + "." + parser_request.fileType
     local_result_file: str = parser_request.requestId + ".md"
-    download_presigned_file(
-        parser_request.inFileUrl,
-        local_original_file,
+
+    # 2. download file
+    await loop.run_in_executor(
+        None, download_presigned_file, parser_request.inFileUrl, local_original_file
     )
 
+    # 3. process
+    full_text, out_meta = process(local_original_file, parser_request)
+
+    # 4. upload markdown file
+    if not parser_request.isDebug:
+        await loop.run_in_executor(None, delete_file, local_original_file)
+        await loop.run_in_executor(
+            None,
+            upload_presigned_file,
+            parser_request.outFileUrl,
+            local_result_file,
+            full_text,
+        )
+    else:
+        await loop.run_in_executor(None, save_file, local_result_file, full_text)
+        await loop.run_in_executor(
+            None, upload_presigned_file, parser_request.outFileUrl, local_result_file
+        )
+
+    return ParserResponse(parser_request.requestId, "200", "success").to_dict()
+
+
+def process(file_path: str, parser_request: ParserRequest) -> tuple[str, dict]:
     start_time: float = time.time()
     full_text, out_meta = convert_single_pdf(
-        local_original_file,
+        file_path,
         model_lst,
         max_pages=parser_request.maxPages,
         parallel_factor=parser_request.parallelFactor,
@@ -76,15 +95,9 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
     logging.info(
         f"Function '{convert_single_pdf.__name__}' took {execution_time} seconds to execute."
     )
+    return full_text, out_meta
 
-    if not parser_request.isDebug:
-        # PROD
-        delete_file(local_original_file)
-        upload_presigned_file(parser_request.outFileUrl, local_result_file, full_text)
-    else:
-        # DEBUG
-        with open(local_result_file, "w+", encoding="utf-8") as f:
-            f.write(full_text)
-        upload_presigned_file(parser_request.outFileUrl, local_result_file)
 
-    return ParserResponse(parser_request.requestId, "200", "success").to_dict()
+def save_file(file_path: str, file_content: str):
+    with open(file_path, "w+", encoding="utf-8") as f:
+        f.write(file_content)
