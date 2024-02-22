@@ -26,6 +26,17 @@ class AnalyzeResult:
         }
         return obj_dict
 
+    @staticmethod
+    def from_dict(data: dict) -> "AnalyzeResult":
+        result = AnalyzeResult()
+        result.fileType = data["fileType"]
+        result.contentType = data["contentType"]
+        result.language = data["language"]
+        result.columnNum = data["columnNum"]
+        result.pageNum = data["pageNum"]
+        # result.contentQuality = data["contentQuality"]
+        return result
+
 
 class AnalyzeResponse:
     def __init__(
@@ -44,3 +55,16 @@ class AnalyzeResponse:
             "data": self.data.to_dict(),
         }
         return obj_dict
+
+    def to_jsonl(self, append_info: dict = {}) -> dict:
+        obj_dict = {**append_info, **self.data.to_dict()}
+        return obj_dict
+
+    @staticmethod
+    def from_dict(data: dict) -> "AnalyzeResponse":
+        return AnalyzeResponse(
+            data["requestId"],
+            data["code"],
+            data["message"],
+            AnalyzeResult.from_dict(data["data"]),
+        )

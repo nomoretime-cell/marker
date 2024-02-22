@@ -1,7 +1,6 @@
 import threading
 import time
 import queue
-import uuid
 from client.config_reader import ConfigReader
 from client.http_client import HttpClient
 from client.presigned_client import PresignedClient
@@ -38,17 +37,22 @@ if __name__ == "__main__":
 
     # Consumer
     if config_reader.get_value("Common", "presigned_mode") == "True":
-        client = PresignedClient(int(config_reader.get_value("PresignedClient", "split_size")))
+        client = PresignedClient(
+            int(config_reader.get_value("PresignedClient", "split_size"))
+        )
     else:
-        client = HttpClient(config_reader.get_value("HttpClient", "url"))
+        client = HttpClient(
+            config_reader.get_value("HttpClient", "url"),
+            True
+            if config_reader.get_value("HttpClient", "analyze_mode") == "True"
+            else False,
+        )
 
     num_consumers = int(config_reader.get_value("Common", "concurrency"))
     consumer_threads = [
         threading.Thread(
             target=client.start_send_thread,
-            args=(
-                message_queue,
-            ),
+            args=(message_queue,),
         )
         for _ in range(num_consumers)
     ]
