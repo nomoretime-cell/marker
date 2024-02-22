@@ -189,3 +189,18 @@ def get_pages(
         doc.get_toc(),
         {"ocr_pages": ocr_pages, "ocr_failed": ocr_failed, "ocr_success": ocr_success},
     )
+
+
+def get_specific_page(
+    doc: pymupdf.Document,
+    tess_lang: str,
+    spell_lang: Optional[str],
+) -> Page:
+    if len(doc) <= 0 or tess_lang is None or tess_lang == "":
+        return None
+    if_no_text = len(get_doc_text(doc).strip()) == 0
+    pages = get_page(doc, len(doc) // 2, tess_lang, spell_lang, if_no_text)
+    if len(pages) > 0:
+        return pages[0]
+    else:
+        return None

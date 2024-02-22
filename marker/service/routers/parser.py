@@ -6,10 +6,11 @@ import time
 from fastapi import APIRouter
 from marker.convert import convert_single_pdf
 from marker.models import load_all_models
-from marker.service.func.parser_func import (
+from marker.service.func.common_func import (
     delete_file,
     download_file,
     download_presigned_file,
+    save_file,
     upload_file,
     upload_presigned_file,
 )
@@ -44,6 +45,7 @@ async def post_parser(parser_request: ParserRequest) -> dict:
         await loop.run_in_executor(None, delete_file, parser_request.outFileUrl)
 
     return ParserResponse(parser_request.requestId, "200", "success").to_dict()
+
 
 @parser_router.post("/v1/parser/", tags=["doc parser"])
 async def post_v1_parser(parser_request: ParserRequest) -> dict:
@@ -95,8 +97,3 @@ def process(file_path: str, parser_request: ParserRequest) -> tuple[str, dict]:
         f"Function '{convert_single_pdf.__name__}' took {execution_time} seconds to execute."
     )
     return full_text, out_meta
-
-
-def save_file(file_path: str, file_content: str):
-    with open(file_path, "w+", encoding="utf-8") as f:
-        f.write(file_content)

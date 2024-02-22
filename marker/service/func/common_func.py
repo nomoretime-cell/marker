@@ -87,6 +87,11 @@ def upload_presigned_file(
         logging.error(f"Error uploading file using presigned URL: {e}")
 
 
+def save_file(file_path: str, file_content: str):
+    with open(file_path, "w+", encoding="utf-8") as f:
+        f.write(file_content)
+
+
 def delete_file(file_path: str) -> None:
     try:
         os.remove(file_path)

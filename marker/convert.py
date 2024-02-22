@@ -4,7 +4,7 @@ from marker.analyzer.spans import SpanType, SpansAnalyzer
 
 from marker.cleaners.table import merge_table_blocks, replace_tables
 from marker.debug.data import dump_bbox_debug_data
-from marker.extract_text import get_pages
+from marker.extract_text import get_doc_text, get_pages, get_specific_page
 from marker.cleaners.headers import filter_header_footer, filter_common_titles
 from marker.cleaners.equations import replace_equations
 from marker.ordering import order_blocks
@@ -16,7 +16,9 @@ from marker.schema import Page, BlockType, MergedBlock, FullyMergedBlock, Span
 from typing import List, Dict, Tuple, Optional
 import re
 import magic
+from marker.service.struct.analyze_struct import AnalyzeResult
 from marker.settings import settings
+import langid
 
 
 def get_filetype(
@@ -233,3 +235,54 @@ def convert_single_pdf(
     out_meta["postprocess_stats"] = {"edit": edit_stats}
 
     return pages_string, out_meta
+
+
+def analyze_single_pdf(
+    fname: str,
+    model_lst: List,
+) -> AnalyzeResult:
+    analyze_result = AnalyzeResult()
+
+    # fileType
+    is_support, filetype = get_filetype(fname)
+    analyze_result.fileType = filetype
+
+    # pageNum
+    doc: pymupdf.Document = pymupdf.Document(fname, filetype=filetype)
+    if filetype != "pdf":
+        doc = pymupdf.open("pdf", doc.convert_to_pdf())
+    analyze_result.pageNum = len(doc)
+
+    # contentType
+    analyze_result.contentType = (
+        "image" if len(get_doc_text(doc).strip()) == 0 else "text"
+    )
+
+    # get middle page
+    lang, tess_lang, spell_lang = get_language()
+    page: Page = get_specific_page(
+        doc,
+        tess_lang,
+        spell_lang,
+    )
+    if page is None:
+        raise Exception("Could not extract page info for " + fname)
+
+    # language
+    langid.set_languages(["en", "zh"])
+    analyze_result.language, languageConfidenceScore = langid.classify(page.prelim_text)
+
+    # columnNum
+    nougat_model, segment_model, order_model, edit_model = model_lst
+    pages = order_blocks(
+        doc,
+        [page],
+        order_model,
+        batch_size=settings.ORDERER_BATCH_SIZE * 1,
+    )
+
+    if len(pages) == 0:
+        raise Exception("Could not extract column num for " + fname)
+    analyze_result.columnNum = pages[0].column_count
+
+    return analyze_result
