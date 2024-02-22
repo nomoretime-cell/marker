@@ -1691,6 +1691,19 @@ files = [
 ]
 
 [[package]]
+name = "langid"
+version = "1.1.6"
+description = "langid.py is a standalone Language Identification (LangID) tool."
+optional = false
+python-versions = "*"
+files = [
+    {file = "langid-1.1.6.tar.gz", hash = "sha256:044bcae1912dab85c33d8e98f2811b8f4ff1213e5e9a9e9510137b84da2cb293"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
 name = "lazy-loader"
 version = "0.3"
 description = "lazy_loader"
@@ -6212,4 +6225,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13,!=3.9.7"
-content-hash = "ba86d7c8164c68ae8f6296d75499b864c962e9f18c4ed6ef60336bc7f26cee04"
+content-hash = "0f7a81e64cc112f6a50bacec0aeeb808cc09fa71507e2de9e161067cc2911cf9"
