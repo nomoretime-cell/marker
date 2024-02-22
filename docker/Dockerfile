@@ -13,6 +13,8 @@ RUN mkdir -p /root/nltk_data && \
 # ocrmypdf dependencies
 RUN apt-get update && \
     yes | apt-get install tesseract-ocr && \
+    yes | apt-get install tesseract-ocr-eng && \
+    yes | apt-get install tesseract-ocr-chi-sim && \
     yes | apt-get install ghostscript
 
 # install poetry

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     TORCH_DEVICE: str = "cpu"
     INFERENCE_RAM: int = 40 # How much VRAM each GPU has (in GB).
     VRAM_PER_TASK: float = 2.5 # How much VRAM to allocate per task (in GB).  Peak marker VRAM usage is around 3GB, but avg across workers is lower.
-    DEFAULT_LANG: str = "English" # Default language we assume files to be in, should be one of the keys in TESSERACT_LANGUAGES
+    DEFAULT_LANG: str = "Chinese" # Default language we assume files to be in, should be one of the keys in TESSERACT_LANGUAGES
 
     SUPPORTED_FILETYPES: Dict = {
         "application/pdf": "pdf",
@@ -38,6 +38,7 @@ class Settings(BaseSettings):
         "French": "fra",
         "German": "deu",
         "Russian": "rus",
+        "Chinese": "chi_sim",
     }
     TESSERACT_TIMEOUT: int = 20 # When to give up on OCR
     SPELLCHECK_LANGUAGES: Dict = {
@@ -47,6 +48,7 @@ class Settings(BaseSettings):
         "French": "fr",
         "German": "de",
         "Russian": "ru",
+        "Chinese": None,
     }
     OCR_ALL_PAGES: bool = False # Run OCR on every page even if text can be extracted
     OCR_PARALLEL_WORKERS: int = 2 # How many CPU workers to use for OCR
