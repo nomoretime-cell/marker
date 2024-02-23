@@ -1,6 +1,7 @@
 import queue
 import threading
-import json
+
+from marker.service.func.common_func import append_file
 
 data_index: int = 0
 file_index: int = 0
@@ -31,6 +32,4 @@ class PresignedClient:
             data_index = data_index + 1
             if data_index % (self.split_size) == 0:
                 file_index = file_index + 1
-            with open(file_path, "a", encoding="utf-8") as file:
-                json_line = json.dumps(jsonl, ensure_ascii=False)
-                file.write(json_line + "\n")
+            append_file(file_path, jsonl)

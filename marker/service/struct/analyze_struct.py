@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -6,36 +7,13 @@ class AnalyzeRequest(BaseModel):
     inFileUrl: str
 
 
-class AnalyzeResult:
-    def __init__(self) -> None:
-        self.fileType: str
-        self.contentType: str
-        self.language: str
-        self.columnNum: int
-        self.pageNum: int
-        # self.contentQuality: int
-
-    def to_dict(self) -> dict:
-        obj_dict = {
-            "fileType": self.fileType,
-            "contentType": self.contentType,
-            "language": self.language,
-            "columnNum": self.columnNum,
-            "pageNum": self.pageNum,
-            # "contentQuality": self.contentQuality,
-        }
-        return obj_dict
-
-    @staticmethod
-    def from_dict(data: dict) -> "AnalyzeResult":
-        result = AnalyzeResult()
-        result.fileType = data["fileType"]
-        result.contentType = data["contentType"]
-        result.language = data["language"]
-        result.columnNum = data["columnNum"]
-        result.pageNum = data["pageNum"]
-        # result.contentQuality = data["contentQuality"]
-        return result
+class AnalyzeResult(BaseModel):
+    fileType: Optional[str] = None
+    contentType: Optional[str] = None
+    language: Optional[str] = None
+    columnNum: Optional[int] = None
+    pageNum: Optional[int] = None
+    contentQuality: Optional[int] = None
 
 
 class AnalyzeResponse:
@@ -52,12 +30,12 @@ class AnalyzeResponse:
             "requestId": self.requestId,
             "code": self.code,
             "message": self.message,
-            "data": self.data.to_dict(),
+            "data": self.data.model_dump(),
         }
         return obj_dict
 
     def to_jsonl(self, append_info: dict = {}) -> dict:
-        obj_dict = {**append_info, **self.data.to_dict()}
+        obj_dict = {**append_info, **self.data.model_dump()}
         return obj_dict
 
     @staticmethod
@@ -66,5 +44,5 @@ class AnalyzeResponse:
             data["requestId"],
             data["code"],
             data["message"],
-            AnalyzeResult.from_dict(data["data"]),
+            AnalyzeResult(**data["data"]),
         )

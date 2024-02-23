@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import requests
@@ -91,6 +92,10 @@ def save_file(file_path: str, file_content: str):
     with open(file_path, "w+", encoding="utf-8") as f:
         f.write(file_content)
 
+def append_file(file_path: str, jsonl: str):
+    with open(file_path, "a", encoding="utf-8") as file:
+        json_line = json.dumps(jsonl, ensure_ascii=False)
+        file.write(json_line + "\n")
 
 def delete_file(file_path: str) -> None:
     try:

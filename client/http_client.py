@@ -3,6 +3,7 @@ import threading
 import requests
 import json
 import uuid
+from marker.service.func.common_func import append_file
 
 from marker.service.struct.analyze_struct import AnalyzeResponse
 from urllib.parse import urlparse, unquote
@@ -68,6 +69,4 @@ class HttpClient:
             file_path: str = "tags-doc.jsonl"
             jsonl = {"id": data_index, **jsonl}
             data_index = data_index + 1
-            with open(file_path, "a", encoding="utf-8") as file:
-                json_line = json.dumps(jsonl, ensure_ascii=False)
-                file.write(json_line + "\n")
+            append_file(file_path, jsonl)

@@ -56,29 +56,25 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
     local_original_file: str = parser_request.requestId
 
     # 2. download file
-    await loop.run_in_executor(
-        None, download_presigned_file, parser_request.inFileUrl, local_original_file
-    )
+    download_presigned_file(parser_request.inFileUrl, local_original_file)
 
     # 3. process
-    full_text, out_meta = process(local_original_file, parser_request)
+    full_text, out_meta = await loop.run_in_executor(
+        None, process, local_original_file, parser_request
+    )
 
     # 4. upload markdown file
     if not parser_request.isDebug:
-        await loop.run_in_executor(None, delete_file, local_original_file)
-        await loop.run_in_executor(
-            None,
-            upload_presigned_file,
+        delete_file(local_original_file)
+        upload_presigned_file(
             parser_request.outFileUrl,
             "",
             full_text,
         )
     else:
         local_result_file: str = parser_request.requestId + ".md"
-        await loop.run_in_executor(None, save_file, local_result_file, full_text)
-        await loop.run_in_executor(
-            None, upload_presigned_file, parser_request.outFileUrl, local_result_file
-        )
+        save_file(local_result_file, full_text)
+        upload_presigned_file(parser_request.outFileUrl, local_result_file)
 
     return ParserResponse(parser_request.requestId, "200", "success").to_dict()
 
