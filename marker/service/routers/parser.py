@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import threading
 import time
 
@@ -18,6 +19,8 @@ from marker.service.struct.parser_struct import ParserRequest, ParserResponse
 
 parser_router = APIRouter()
 model_lst = load_all_models()
+is_request_processing = False
+is_request_processing_lock = threading.Lock()
 
 
 @parser_router.post("/internal/parser/", tags=["doc parser"])
@@ -49,33 +52,48 @@ async def post_parser(parser_request: ParserRequest) -> dict:
 
 @parser_router.post("/v1/parser/", tags=["doc parser"])
 async def post_v1_parser(parser_request: ParserRequest) -> dict:
-    logging.info(f"POST request, thread id: {threading.current_thread().ident}")
-    loop = asyncio.get_running_loop()
+    global is_request_processing
+    with is_request_processing_lock:
+        if is_request_processing:
+            return ParserResponse(parser_request.requestId, "500", "busy").to_dict()
+        else:
+            is_request_processing = True
 
-    # 1. prepare file path
-    local_original_file: str = parser_request.requestId
-
-    # 2. download file
-    download_presigned_file(parser_request.inFileUrl, local_original_file)
-
-    # 3. process
-    full_text, out_meta = await loop.run_in_executor(
-        None, process, local_original_file, parser_request
-    )
-
-    # 4. upload markdown file
-    if not parser_request.isDebug:
-        delete_file(local_original_file)
-        upload_presigned_file(
-            parser_request.outFileUrl,
-            "",
-            full_text,
+    try:
+        logging.info(
+            f"POST request, pid: {os.getpid()}, thread id: {threading.current_thread().ident}"
         )
-    else:
-        local_result_file: str = parser_request.requestId + ".md"
-        save_file(local_result_file, full_text)
-        upload_presigned_file(parser_request.outFileUrl, local_result_file)
+        loop = asyncio.get_running_loop()
 
+        # 1. prepare file path
+        local_original_file: str = parser_request.requestId
+
+        # 2. download file
+        download_presigned_file(parser_request.inFileUrl, local_original_file)
+
+        # 3. process
+        full_text, out_meta = await loop.run_in_executor(
+            None, process, local_original_file, parser_request
+        )
+
+        # 4. upload markdown file
+        if not parser_request.isDebug:
+            delete_file(local_original_file)
+            upload_presigned_file(
+                parser_request.outFileUrl,
+                "",
+                full_text,
+            )
+        else:
+            local_result_file: str = parser_request.requestId + ".md"
+            save_file(local_result_file, full_text)
+            upload_presigned_file(parser_request.outFileUrl, local_result_file)
+
+    except Exception as e:
+        ParserResponse(parser_request.requestId, "500", e).to_dict()
+    finally:
+        with is_request_processing_lock:
+            is_request_processing = False
     return ParserResponse(parser_request.requestId, "200", "success").to_dict()
 
 
