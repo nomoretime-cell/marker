@@ -6,8 +6,6 @@ from marker.schema import Line, Span, Block, Page
 from copy import deepcopy
 from tabulate import tabulate
 from typing import List
-import re
-import textwrap
 import fitz
 
 
@@ -172,54 +170,3 @@ def replace_tables(doc: fitz.Document, pages: List[Page], model, debug_mode: boo
             if debug_mode:
                 with open("inline_table.md", "a") as file:
                     file.write(f"table_{page_idx}_{block_idx} {predictions}  \n")
-
-
-def create_new_tables(pages: List[Page]):
-    table_idx = 0
-    dot_pattern = re.compile(r"(\s*\.\s*){4,}")
-    dot_multiline_pattern = re.compile(r".*(\s*\.\s*){4,}.*", re.DOTALL)
-
-    for page in pages:
-        for block_idx, block in enumerate(page.blocks):
-            if block.most_common_block_type() != "Table" or len(block.lines) < 3:
-                continue
-
-            table_rows = []
-            y_coord = None
-            row = []
-            for line in block.lines:
-                for span in line.spans:
-                    if y_coord != span.y_start:
-                        if len(row) > 0:
-                            table_rows.append(row)
-                            row = []
-                        y_coord = span.y_start
-
-                    text = span.text
-                    if dot_multiline_pattern.match(text):
-                        text = dot_pattern.sub(" ", text)
-                    row.append(text)
-            if len(row) > 0:
-                table_rows.append(row)
-
-            # Don't render tables if they will be too large
-            if (
-                max([len("".join(r)) for r in table_rows]) > 300
-                or len(table_rows[0]) > 8
-                or len(table_rows[0]) < 2
-            ):
-                continue
-
-            new_text = tabulate(table_rows, headers="firstrow", tablefmt="github")
-            new_span = Span(
-                bbox=block.bbox,
-                span_id=f"{table_idx}_fix_table",
-                font="Table",
-                color=0,
-                block_type="Table",
-                text=new_text,
-            )
-            new_line = Line(bbox=block.bbox, spans=[new_span])
-            block.lines = [new_line]
-            table_idx += 1
-    return table_idx
