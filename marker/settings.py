@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     TEXIFY_MODEL_NAME: str = "vikp/texify"
 
     # Layout model
-    BAD_SPAN_TYPES: List[str] = ["Caption", "Footnote", "Page-footer", "Page-header", "Picture"]
+    BAD_SPAN_TYPES: List[str] = ["Caption", "Footnote", "Page-footer", "Page-header", "Picture", "ErrorType"]
     LAYOUT_MODEL_MAX: int = 512
     LAYOUT_CHUNK_OVERLAP: int = 64
     LAYOUT_DPI: int = 96

@@ -1,6 +1,7 @@
 import logging
 import fitz as pymupdf
 from marker.analyzer.spans import SpanType, SpansAnalyzer
+from marker.cleaners.picture import extend_picture_blocks, merge_picture_blocks
 
 from marker.cleaners.table import merge_table_blocks, replace_tables
 from marker.debug.data import dump_bbox_debug_data
@@ -193,9 +194,13 @@ def convert_single_pdf(
     # out_meta["block_stats"]["code"] = code_block_count
     # indent_blocks(blocks)
 
-    # Fix table blocks
+    # table blocks
     merge_table_blocks(pages)
     replace_tables(doc, pages, nougat_model, debug_mode)
+    
+    # picture blocks
+    merge_picture_blocks(pages)
+    extend_picture_blocks(doc, pages, debug_mode)
 
     for page in pages:
         for block in page.blocks:

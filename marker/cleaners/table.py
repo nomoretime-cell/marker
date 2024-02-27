@@ -2,66 +2,22 @@ import io
 import os
 from marker.bbox import merge_boxes
 from marker.cleaners.nougat import get_image_bytes, get_tokens_len, process
+from marker.cleaners.utils import merge_target_blocks, set_block_type
 from marker.schema import Line, Span, Block, Page
-from copy import deepcopy
 from tabulate import tabulate
 from typing import List
 import fitz
-
-
-def merge_table_blocks(pages: List[Page]):
-    table_lines = []
-    table_bbox = None
-    for page in pages:
-        new_page_blocks = []
-        pnum = page.pnum
-        for block in page.blocks:
-            # other block
-            if block.most_common_block_type() != "Table":
-                if len(table_lines) > 0:
-                    # merge last table block
-                    table_block = Block(
-                        lines=deepcopy(table_lines), pnum=pnum, bbox=table_bbox
-                    )
-                    new_page_blocks.append(table_block)
-                    table_lines = []
-                    table_bbox = None
-
-                # merge other block
-                new_page_blocks.append(block)
-                continue
-
-            # table block
-            table_lines.extend(block.lines)
-            if table_bbox is None:
-                # init table bbox
-                table_bbox = block.bbox
-            else:
-                # merge table bbox
-                table_bbox = merge_boxes(table_bbox, block.bbox)
-
-        if len(table_lines) > 0:
-            # merge last table block
-            table_block = Block(lines=deepcopy(table_lines), pnum=pnum, bbox=table_bbox)
-            new_page_blocks.append(table_block)
-            table_lines = []
-            table_bbox = None
-
-        # update new page blocks
-        page.blocks = new_page_blocks
-
-
-def set_block_type(block: Block, type: str):
-    for line in block.lines:
-        for span in line.spans:
-            span.block_type = type
 
 
 def replace_error_tables(block: Block):
     for line in block.lines:
         for span in line.spans:
             if span.block_type == "Table":
-                span.block_type = "Picture"
+                span.block_type = "ErrorType"
+
+
+def merge_table_blocks(pages: List[Page]):
+    merge_target_blocks(pages, "Table")
 
 
 def replace_tables(doc: fitz.Document, pages: List[Page], model, debug_mode: bool):
@@ -73,6 +29,7 @@ def replace_tables(doc: fitz.Document, pages: List[Page], model, debug_mode: boo
                 replace_error_tables(block)
                 continue
 
+            # merge table blocks
             prev_block: Block = None
             next_block: Block = None
             if block_idx > 0:
@@ -107,6 +64,7 @@ def replace_tables(doc: fitz.Document, pages: List[Page], model, debug_mode: boo
                 set_block_type(block, "Picture")
                 continue
 
+            # parse table
             table_row = []
             table_arrays = []
             line_y_start = None
@@ -152,7 +110,6 @@ def replace_tables(doc: fitz.Document, pages: List[Page], model, debug_mode: boo
 
             # save table image
             if debug_mode:
-                # Save equation image
                 file_name = f"table_{page_idx}_{block_idx}.bmp"
                 save_path = os.path.join("./", file_name)
                 with open(save_path, "wb") as f:
