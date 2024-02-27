@@ -4,7 +4,7 @@ import os
 import threading
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from marker.convert import convert_single_pdf
 from marker.models import load_all_models
 from marker.service.func.common_func import (
@@ -55,7 +55,8 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
     global is_request_processing
     with is_request_processing_lock:
         if is_request_processing:
-            return ParserResponse(parser_request.requestId, "500", "busy").to_dict()
+            # raise HTTPException(status_code=503, detail="service is busy")
+            return ParserResponse(parser_request.requestId, "503", "service is busy").to_dict()
         else:
             is_request_processing = True
 
@@ -89,6 +90,8 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
             save_file(local_result_file, full_text)
             upload_presigned_file(parser_request.outFileUrl, local_result_file)
 
+    except HTTPException as http_e:
+        raise http_e
     except Exception as e:
         ParserResponse(parser_request.requestId, "500", e).to_dict()
     finally:
