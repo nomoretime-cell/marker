@@ -50,28 +50,6 @@ def load_segment_model():
     return model
 
 
-def get_pages_types(
-    doc, pages: List[Page], segment_model, batch_size=settings.LAYOUT_BATCH_SIZE
-) -> List[List[BlockType]]:
-    encodings, metadata, sample_lengths = get_features(doc, pages)
-    predictions = predict_block_types(encodings, segment_model, batch_size)
-    pages_types = match_predictions_to_boxes(
-        encodings, predictions, metadata, sample_lengths, segment_model
-    )
-    assert len(pages_types) == len(pages)
-    return pages_types
-
-
-def get_provisional_boxes(pred, box, is_subword, start_idx=0):
-    prov_predictions = [pred_ for idx, pred_ in enumerate(pred) if not is_subword[idx]][
-        start_idx:
-    ]
-    prov_boxes = [box_ for idx, box_ in enumerate(box) if not is_subword[idx]][
-        start_idx:
-    ]
-    return prov_predictions, prov_boxes
-
-
 def get_page_encoding(page, page_blocks: Page):
     if len(page_blocks.get_all_lines()) == 0:
         return [], []
@@ -169,6 +147,16 @@ def get_page_encoding(page, page_blocks: Page):
         "pheight": pheight,
     }
     return list_encoding, other_data
+
+
+def get_provisional_boxes(pred, box, is_subword, start_idx=0):
+    prov_predictions = [pred_ for idx, pred_ in enumerate(pred) if not is_subword[idx]][
+        start_idx:
+    ]
+    prov_boxes = [box_ for idx, box_ in enumerate(box) if not is_subword[idx]][
+        start_idx:
+    ]
+    return prov_predictions, prov_boxes
 
 
 def get_features(doc, pages: List[Page]):
@@ -287,4 +275,16 @@ def match_predictions_to_boxes(
                 page_types.append(BlockType(block_type="Text", bbox=unnorm_box))
         pages_types.append(page_types)
         page_start += sample_length
+    return pages_types
+
+
+def get_pages_types(
+    doc, pages: List[Page], segment_model, batch_size=settings.LAYOUT_BATCH_SIZE
+) -> List[List[BlockType]]:
+    encodings, metadata, sample_lengths = get_features(doc, pages)
+    predictions = predict_block_types(encodings, segment_model, batch_size)
+    pages_types = match_predictions_to_boxes(
+        encodings, predictions, metadata, sample_lengths, segment_model
+    )
+    assert len(pages_types) == len(pages)
     return pages_types

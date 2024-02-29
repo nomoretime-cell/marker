@@ -56,7 +56,9 @@ async def post_v1_parser(parser_request: ParserRequest) -> dict:
     with is_request_processing_lock:
         if is_request_processing:
             # raise HTTPException(status_code=503, detail="service is busy")
-            return ParserResponse(parser_request.requestId, "503", "service is busy").to_dict()
+            return ParserResponse(
+                parser_request.requestId, "503", "service is busy"
+            ).to_dict()
         else:
             is_request_processing = True
 
