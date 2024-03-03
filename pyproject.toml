@@ -35,6 +35,7 @@ minio = "^7.2.0"               # minio
 gunicorn = "^21.2.0"
 texify = "^0.1.8"
 langid = "^1.1.6"
+gradio = "^4.19.2"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
