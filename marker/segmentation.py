@@ -1,4 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor
 import logging
 from typing import List
 
@@ -14,6 +13,8 @@ from marker.settings import settings
 from marker.schema import Page, BlockType
 import torch
 from math import isclose
+import fitz
+from PIL import ImageDraw, ImageFont
 
 # Otherwise some images can be truncated
 Image.MAX_IMAGE_PIXELS = None
@@ -50,62 +51,86 @@ def load_segment_model():
     return model
 
 
-def get_page_encoding(page, page_blocks: Page):
-    if len(page_blocks.get_all_lines()) == 0:
-        return [], []
+def get_page_image(mupdf_page: fitz.Page, inner_page: Page):
+    # 1pt = 1/72 inch (pt可以理解成物理尺寸)
+    # image width = inch width * dpi
+    # image height = inch height * dpi
 
-    page_box = page_blocks.bbox
-    pwidth = page_blocks.width
-    pheight = page_blocks.height
+    # inner_page.bbox = [0.0, 0.0, 612.0, 792.0]  612 is 612pt, 792 is 792pt
+    # image width(816) = 612pt/72(pt/inch) * 96 dpi
+    # image height(1056) = 792pt/72(pt/inch) * 96 dpi
 
-    pix = page.get_pixmap(dpi=settings.LAYOUT_DPI, annots=False, clip=page_blocks.bbox)
-    png = pix.pil_tobytes(format="PNG")
-    png_image = Image.open(io.BytesIO(png))
-    # If it is too large, make it smaller for the model
-    rgb_image = png_image.convert("RGB")
-    rgb_width, rgb_height = rgb_image.size
+    # pt 也被用来表述 字体大小，页面元素，行间距，行高等
+    # dpi（Dots Per Inch）的值在数字图像上下文指的是 像素，否则是 打印点
+    # 图像的大小取决于 dpi
 
-    # Image is correct size wrt the pdf page
-    assert isclose(rgb_width / pwidth, rgb_height / pheight, abs_tol=2e-2)
+    pixmap = mupdf_page.get_pixmap(
+        dpi=settings.LAYOUT_DPI, annots=False, clip=inner_page.bbox
+    )
+    png_image = Image.open(io.BytesIO(pixmap.pil_tobytes(format="PNG")))
+    image = png_image.convert("RGB")
+    image_width, image_height = image.size
 
-    lines = page_blocks.get_all_lines()
+    page_pt_box = inner_page.bbox
+    page_pt_width = inner_page.width
+    page_pt_height = inner_page.height
 
-    boxes = []
-    text = []
+    assert isclose(
+        image_width / page_pt_width, image_height / page_pt_height, abs_tol=2e-2
+    )
+
+    return image, page_pt_box, page_pt_width, page_pt_height
+
+
+def get_line_info(inner_page, page_pt_box):
+    line_pt_box_vector = []
+    line_text_vector = []
+    lines = inner_page.get_all_lines()
     for line in lines:
-        box = line.bbox
         # Bounding boxes sometimes overflow
-        if box[0] < page_box[0]:
-            box[0] = page_box[0]
-        if box[1] < page_box[1]:
-            box[1] = page_box[1]
-        if box[2] > page_box[2]:
-            box[2] = page_box[2]
-        if box[3] > page_box[3]:
-            box[3] = page_box[3]
+        if line.bbox[0] < page_pt_box[0]:
+            line.bbox[0] = page_pt_box[0]
+        if line.bbox[1] < page_pt_box[1]:
+            line.bbox[1] = page_pt_box[1]
+        if line.bbox[2] > page_pt_box[2]:
+            line.bbox[2] = page_pt_box[2]
+        if line.bbox[3] > page_pt_box[3]:
+            line.bbox[3] = page_pt_box[3]
 
         # Handle case when boxes are 0 or less width or height
-        if box[2] <= box[0]:
+        if line.bbox[2] <= line.bbox[0]:
             logging.error("Zero width box found, cannot convert properly")
             raise ValueError
-        if box[3] <= box[1]:
+        if line.bbox[3] <= line.bbox[1]:
             logging.error("Zero height box found, cannot convert properly")
             raise ValueError
-        boxes.append(box)
-        text.append(line.prelim_text)
+        line_pt_box_vector.append(line.bbox)
+        line_text_vector.append(line.prelim_text)
+    return line_pt_box_vector, line_text_vector
+
+
+def get_page_encoding(page: fitz.Page, inner_page: Page):
+    if len(inner_page.get_all_lines()) == 0:
+        return [], []
+
+    image, page_pt_box, page_pt_width, page_pt_height = get_page_image(page, inner_page)
+    line_pt_box_vector, line_text_vector = get_line_info(inner_page, page_pt_box)
 
     # Normalize boxes for model (scale to 1000x1000)
-    boxes = [normalize_box(box, pwidth, pheight) for box in boxes]
-    for box in boxes:
+    line_pt_box_vector = [
+        normalize_box(line_box, page_pt_width, page_pt_height)
+        for line_box in line_pt_box_vector
+    ]
+    for line_box in line_pt_box_vector:
         # Verify that boxes are all valid
-        assert len(box) == 4
-        assert (max(box)) <= 1000
-        assert (min(box)) >= 0
+        assert len(line_box) == 4
+        assert (max(line_box)) <= 1000
+        assert (min(line_box)) >= 0
 
     encoding = processor(
-        rgb_image,
-        text=text,
-        boxes=boxes,
+        image,
+        text=line_text_vector,
+        boxes=line_pt_box_vector,
         return_offsets_mapping=True,
         truncation=True,
         return_tensors="pt",
@@ -114,12 +139,12 @@ def get_page_encoding(page, page_blocks: Page):
         max_length=settings.LAYOUT_MODEL_MAX,
         return_overflowing_tokens=True,
     )
-    offset_mapping = encoding.pop("offset_mapping")
-    overflow_to_sample_mapping = encoding.pop("overflow_to_sample_mapping")
+
     bbox = list(encoding["bbox"])
     input_ids = list(encoding["input_ids"])
     attention_mask = list(encoding["attention_mask"])
     pixel_values = list(encoding["pixel_values"])
+    offset_mapping = encoding.pop("offset_mapping")
 
     assert (
         len(bbox)
@@ -141,12 +166,12 @@ def get_page_encoding(page, page_blocks: Page):
             }
         )
 
-    other_data = {
-        "original_bbox": boxes,
-        "pwidth": pwidth,
-        "pheight": pheight,
+    metadata = {
+        "original_bbox": line_pt_box_vector,
+        "pwidth": page_pt_width,
+        "pheight": page_pt_height,
     }
-    return list_encoding, other_data
+    return image, list_encoding, metadata
 
 
 def get_provisional_boxes(pred, box, is_subword, start_idx=0):
@@ -161,14 +186,16 @@ def get_provisional_boxes(pred, box, is_subword, start_idx=0):
 
 def get_features(doc, pages: List[Page]):
     encodings = []
-    metadata = []
-    sample_lengths = []
+    pages_metadata = []
+    pages_sample = []
+    images = []
     for i in range(len(pages)):
-        encoding, other_data = get_page_encoding(doc[i], pages[i])
+        image, encoding, other_data = get_page_encoding(doc[i], pages[i])
         encodings.extend(encoding)
-        metadata.append(other_data)
-        sample_lengths.append(len(encoding))
-    return encodings, metadata, sample_lengths
+        pages_metadata.append(other_data)
+        pages_sample.append(len(encoding))
+        images.append(image)
+    return images, encodings, pages_metadata, pages_sample
 
 
 def predict_block_types(encodings, segment_model, batch_size):
@@ -197,36 +224,36 @@ def predict_block_types(encodings, segment_model, batch_size):
 
 
 def match_predictions_to_boxes(
-    encodings, predictions, metadata, sample_lengths, segment_model
+    encodings, pages_metadata, pages_sample, segment_model, predictions
 ) -> List[List[BlockType]]:
-    assert len(encodings) == len(predictions) == sum(sample_lengths)
-    assert len(metadata) == len(sample_lengths)
+    assert len(encodings) == len(predictions) == sum(pages_sample)
+    assert len(pages_metadata) == len(pages_sample)
 
     page_start = 0
     pages_types = []
-    for pnum, sample_length in enumerate(sample_lengths):
+    for pnum, page_sample in enumerate(pages_sample):
         # Page has no blocks
-        if sample_length == 0:
+        if page_sample == 0:
             pages_types.append([])
             continue
 
-        page_data = metadata[pnum]
-        page_end = min(page_start + sample_length, len(predictions))
+        page_metadata = pages_metadata[pnum]
+        page_end = min(page_start + page_sample, len(predictions))
         page_predictions = predictions[page_start:page_end]
         page_encodings = encodings[page_start:page_end]
-        token_boxes = [e["bbox"] for e in page_encodings]
-        offset_mapping = [e["offset_mapping"] for e in page_encodings]
-        pwidth = page_data["pwidth"]
-        pheight = page_data["pheight"]
-        boxes = page_data["original_bbox"]
+        
+        encoding_boxes = [e["bbox"] for e in page_encodings]
+        encoding_offset_mapping = [e["offset_mapping"] for e in page_encodings]
+        metadata_pwidth = page_metadata["pwidth"]
+        metadata_pheight = page_metadata["pheight"]
+        metadata_original_bbox = page_metadata["original_bbox"]
+
+        for i in range(len(encoding_boxes)):
+            assert len(encoding_boxes[i]) == len(page_predictions[i])
 
         predicted_block_types = []
-
-        for i in range(len(token_boxes)):
-            assert len(token_boxes[i]) == len(page_predictions[i])
-
         for i, (pred, box, mapped) in enumerate(
-            zip(page_predictions, token_boxes, offset_mapping)
+            zip(page_predictions, encoding_boxes, encoding_offset_mapping)
         ):
             box = box.tolist()
             is_subword = np.array(mapped)[:, 0] != 0
@@ -262,11 +289,11 @@ def match_predictions_to_boxes(
         # This will align both sets of bboxes by index
         # If there are duplicate bboxes, it may result in issues
         page_types = []
-        for i in range(len(boxes)):
-            unnorm_box = unnormalize_box(boxes[i], pwidth, pheight)
+        for i in range(len(metadata_original_bbox)):
+            unnorm_box = unnormalize_box(metadata_original_bbox[i], metadata_pwidth, metadata_pheight)
             appended = False
             for j in range(len(predicted_block_types)):
-                if boxes[i] == predicted_block_types[j].bbox:
+                if metadata_original_bbox[i] == predicted_block_types[j].bbox:
                     predicted_block_types[j].bbox = unnorm_box
                     page_types.append(predicted_block_types[j])
                     appended = True
@@ -274,17 +301,48 @@ def match_predictions_to_boxes(
             if not appended:
                 page_types.append(BlockType(block_type="Text", bbox=unnorm_box))
         pages_types.append(page_types)
-        page_start += sample_length
+        page_start += page_sample
     return pages_types
 
 
+def save_image(pages, images, pages_types):
+    for i, (image, page_types) in enumerate(zip(images, pages_types)):
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.load_default()
+
+        image_width, image_height = images[i].size
+        ratio = image_height / pages[i].height
+        for block_type in page_types:
+            label = block_type.block_type
+            bbox = block_type.bbox
+            draw.rectangle(
+                (
+                    (bbox[0] * ratio, bbox[1] * ratio),
+                    (bbox[2] * ratio, bbox[3] * ratio),
+                ),
+                outline="red",
+                width=2,
+            )
+            draw.text((bbox[0] * ratio, bbox[1] * ratio), label, fill="red", font=font)
+
+        image_save_path = f"segmentation_image_page_{i}.png"
+        image.save(image_save_path)
+        print(f"Saved: {image_save_path}")
+
+
 def get_pages_types(
-    doc, pages: List[Page], segment_model, batch_size=settings.LAYOUT_BATCH_SIZE
+    doc,
+    pages: List[Page],
+    segment_model,
+    batch_size=settings.LAYOUT_BATCH_SIZE,
+    debug_mode=False,
 ) -> List[List[BlockType]]:
-    encodings, metadata, sample_lengths = get_features(doc, pages)
+    images, encodings, pages_metadata, pages_sample = get_features(doc, pages)
     predictions = predict_block_types(encodings, segment_model, batch_size)
     pages_types = match_predictions_to_boxes(
-        encodings, predictions, metadata, sample_lengths, segment_model
+        encodings, pages_metadata, pages_sample, segment_model, predictions
     )
     assert len(pages_types) == len(pages)
+    if debug_mode:
+        save_image(pages, images, pages_types)
     return pages_types

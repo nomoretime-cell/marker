@@ -161,6 +161,7 @@ def convert_single_pdf(
         pages,
         segment_model,
         batch_size=settings.LAYOUT_BATCH_SIZE * parallel_factor,
+        debug_mode=debug_mode,
     )
 
     # Find headers and footers
@@ -197,7 +198,7 @@ def convert_single_pdf(
     # table blocks
     merge_table_blocks(pages)
     replace_tables(doc, pages, nougat_model, debug_mode)
-    
+
     # picture blocks
     merge_picture_blocks(pages)
     extend_picture_blocks(doc, pages, debug_mode)

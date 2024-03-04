@@ -131,7 +131,6 @@ def get_page(
         not disable_ocr,
     ]
     if all(conditions) or settings.OCR_ALL_PAGES:
-        page = doc[pnum]
         blocks = get_blocks(doc, pnum, tess_lang, spellchecker, ocr=True)
         page = Page(
             blocks=blocks, pnum=pnum, bbox=doc[pnum].bound(), rotation=page.rotation
