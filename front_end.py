@@ -16,13 +16,17 @@ def process_pdf(file_path):
     return full_text
 
 
-iface = gr.Interface(
-    fn=process_pdf,
-    inputs=gr.File(label="Upload Document"),
-    outputs="markdown",
-    title="DocParser 文档解析器",
-    description="上传文档",
-)
+def main():
+    iface = gr.Interface(
+        fn=process_pdf,
+        inputs=gr.File(label="Upload Document"),
+        outputs="markdown",
+        title="DocParser 文档解析器",
+        description="上传文档",
+    )
+
+    iface.launch(ssl_verify=False, server_name="0.0.0.0", server_port=8100, share=True)
 
 
-iface.launch(server_name="30.220.144.140", share=True)
+if __name__ == "__main__":
+    main()
