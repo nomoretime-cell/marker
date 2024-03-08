@@ -3,7 +3,7 @@ import fitz as pymupdf
 from marker.analyzer.spans import SpanType, SpansAnalyzer
 from marker.cleaners.picture import extend_picture_blocks, merge_picture_blocks
 
-from marker.cleaners.table import merge_table_blocks, replace_tables
+from marker.cleaners.table import process_tables
 from marker.debug.data import dump_bbox_debug_data
 from marker.extract_text import get_doc_text, get_pages, get_specific_page
 from marker.cleaners.headers import filter_header_footer, filter_common_titles
@@ -196,8 +196,7 @@ def convert_single_pdf(
     # indent_blocks(blocks)
 
     # table blocks
-    merge_table_blocks(pages)
-    replace_tables(doc, pages, nougat_model, debug_mode)
+    process_tables(doc, pages, nougat_model, debug_mode)
 
     # picture blocks
     merge_picture_blocks(pages)

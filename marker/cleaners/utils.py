@@ -10,6 +10,13 @@ def set_block_type(block: Block, type: str):
             span.block_type = type
 
 
+def set_special_block_type(block: Block, origin_type: str, type: str):
+    for line in block.lines:
+        for span in line.spans:
+            if span.block_type == origin_type:
+                span.block_type = type
+
+
 def merge_target_blocks(pages: List[Page], block_type: str):
     target_lines = []
     target_bbox = None
