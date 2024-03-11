@@ -1,11 +1,11 @@
 import gradio as gr
 
-from marker.service.routers.parser import process
+from marker.service.routers.parser import inner_process
 from marker.service.struct.parser_struct import ParserRequest
 
 
 def process_pdf(file_path):
-    full_text, out_meta = process(
+    full_text, out_meta = inner_process(
         file_path,
         ParserRequest(
             requestId="gradio-test",
