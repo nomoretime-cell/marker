@@ -127,7 +127,7 @@ def get_page(
         ),
         # keep title
         # (pnum == 0) or (min_ocr_page < pnum < len(doc) - 1),
-        min_ocr_page < pnum < len(doc) - 1,
+        # min_ocr_page < pnum < len(doc) - 1,
         not disable_ocr,
     ]
     if all(conditions) or settings.OCR_ALL_PAGES:
