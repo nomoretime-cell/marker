@@ -196,7 +196,7 @@ def convert_single_pdf(
     # indent_blocks(blocks)
 
     # table blocks
-    process_tables(doc, pages, nougat_model, debug_mode)
+    process_tables(fname, doc, pages, nougat_model, debug_mode)
 
     # picture blocks
     merge_picture_blocks(pages)

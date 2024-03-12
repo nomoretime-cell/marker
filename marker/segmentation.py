@@ -111,7 +111,7 @@ def get_line_info(inner_page, page_pt_box):
 
 def get_page_encoding(page: fitz.Page, inner_page: Page):
     if len(inner_page.get_all_lines()) == 0:
-        return [], []
+        return [], [], []
 
     image, page_pt_box, page_pt_width, page_pt_height = get_page_image(page, inner_page)
     line_pt_box_vector, line_text_vector = get_line_info(inner_page, page_pt_box)
@@ -241,7 +241,7 @@ def match_predictions_to_boxes(
         page_end = min(page_start + page_sample, len(predictions))
         page_predictions = predictions[page_start:page_end]
         page_encodings = encodings[page_start:page_end]
-        
+
         encoding_boxes = [e["bbox"] for e in page_encodings]
         encoding_offset_mapping = [e["offset_mapping"] for e in page_encodings]
         metadata_pwidth = page_metadata["pwidth"]
@@ -290,7 +290,9 @@ def match_predictions_to_boxes(
         # If there are duplicate bboxes, it may result in issues
         page_types = []
         for i in range(len(metadata_original_bbox)):
-            unnorm_box = unnormalize_box(metadata_original_bbox[i], metadata_pwidth, metadata_pheight)
+            unnorm_box = unnormalize_box(
+                metadata_original_bbox[i], metadata_pwidth, metadata_pheight
+            )
             appended = False
             for j in range(len(predicted_block_types)):
                 if metadata_original_bbox[i] == predicted_block_types[j].bbox:
