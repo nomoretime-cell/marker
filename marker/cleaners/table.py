@@ -58,13 +58,27 @@ class CellRange:
         real_ratio = self.intersect_ratio(in_start, in_end)
         return real_ratio > ratio
 
+    def is_in_border(self, in_start: int, in_end: int, expect_gap: int = 2):
+        if in_start - self.cell_end > 0:
+            real_gap = in_start - self.cell_end
+        elif self.cell_start - in_end > 0:
+            real_gap = self.cell_start - in_end
+        else:
+            return False
+
+        if real_gap < expect_gap:
+            return True
+        else:
+            return False
+
     def intersect_ratio(self, in_start: int, in_end: int):
         in_length = in_end - in_start
+        self_length = self.cell_end - self.cell_start
         intersect: bool = self.cell_start <= in_end and self.cell_end >= in_start
         if not intersect:
             return 0
         intersect_length = min(self.cell_end, in_end) - max(self.cell_start, in_start)
-        return intersect_length / in_length
+        return intersect_length / min(self_length, in_length)
 
     def extend(self, in_start: int, in_end: int):
         self.cell_start = min(self.cell_start, in_start)
@@ -76,7 +90,9 @@ class CellRange:
 
 def calculate_column(column_x_list: List[CellRange], x_start: int, x_end: int):
     for column in column_x_list:
-        if column.is_intersect(x_start, x_end, 0.0):
+        if column.is_intersect(x_start, x_end, 0.0) or column.is_in_border(
+            x_start, x_end, 5
+        ):
             column.extend(x_start, x_end)
             return
     column_x_list.append(CellRange(x_start, x_end))
@@ -84,7 +100,7 @@ def calculate_column(column_x_list: List[CellRange], x_start: int, x_end: int):
 
 def calculate_row(row_y_list: List[CellRange], y_start: int, y_end: int):
     for row in row_y_list:
-        if row.is_intersect(y_start, y_end, 0.8):
+        if row.is_intersect(y_start, y_end, 0.7):
             row.extend(y_start, y_end)
             return
     row_y_list.append(CellRange(y_start, y_end))
@@ -98,40 +114,49 @@ def recognition_table(block: Block, table_idx: int, debug_mode):
     if column_x_list == []:
         return
     column_x_list.sort(key=lambda x: x.cell_start)
-    column_one = column_x_list[0]
 
     # get row heads
+    # row_y_list: List[CellRange] = []
+    # column_one = column_x_list[0]
+    # for line in block.lines:
+    #     if column_one.is_in(line.x_start, line.x_start + line.width):
+    #         row_y_list.append(CellRange(line.y_start, line.y_start + line.height))
+    # if row_y_list == []:
+    #     return
+    # row_y_list.sort(key=lambda x: x.cell_start)
+
+    # get row
     row_y_list: List[CellRange] = []
     for line in block.lines:
-        if column_one.is_in(line.x_start, line.x_start + line.width):
-            row_y_list.append(CellRange(line.y_start, line.y_start + line.height))
+        calculate_row(row_y_list, line.y_start, line.y_start + line.height)
     if row_y_list == []:
         return
     row_y_list.sort(key=lambda x: x.cell_start)
 
-    # 2. 然后判断其是否有换行（条件：后面column中的文本和该行头的重叠率）
-    row_y_list: List[CellRange] = []
-    for line in block.lines:
-        calculate_row(row_y_list, line.y_start, line.y_start + line.height)
+    # merget row list
+    # merge_row_list: List[CellRange] = []
+    # for row in row_y_list:
+    #     calculate_row(merge_row_list, row.cell_start, row.cell_end)
 
-    merge_row_list: List[CellRange] = []
-    for row in row_y_list:
-        calculate_row(merge_row_list, row.cell_start, row.cell_end)
-
-    table_row = []
     table_matrix = []
-    line_y_start = None
-    for line in block.lines:
-        if line_y_start is None or abs(line_y_start - line.y_start) > 2:
-            # new row, append last row to matrix
-            if len(table_row) > 0:
-                table_matrix.append(table_row)
-                table_row = []
-            line_y_start = line.y_start
-        # append line to row
-        table_row.append(line.prelim_text)
-    # append last row
-    if len(table_row) > 0:
+    line_cache: dict = {}
+    for row in row_y_list:
+        table_row = []
+        for column in column_x_list:
+            current_cell: str = ""
+            for line_index, line in enumerate(block.lines):
+                if (
+                    row.is_in(line.y_start, line.y_start + line.height)
+                    and column.is_in(line.x_start, line.x_start + line.width)
+                    and line_index not in line_cache
+                ):
+                    line_cache[line_index] = line
+                    if current_cell == "":
+                        current_cell = line.prelim_text
+                    else:
+                        current_cell = current_cell + " " + line.prelim_text
+
+            table_row.append(current_cell)
         table_matrix.append(table_row)
 
     table_to_markdown(table_matrix, block, table_idx, debug_mode)
@@ -160,7 +185,7 @@ def recognition_table_pdfplumber(
 
 def table_to_markdown(table: List[List[str]], block: Block, table_idx: int, debug_mode):
     # convert table matrix to markdown
-    new_text = tabulate(table, headers="firstrow", tablefmt="github")
+    new_text = tabulate(table, tablefmt="github")
     block.lines = [
         Line(
             bbox=block.bbox,
@@ -232,10 +257,10 @@ def process_tables(
                 if not is_success:
                     continue
 
-                # recognition_table(block, table_idx, debug_mode)
-                recognition_table_pdfplumber(
-                    pdfp.pages[page_idx], table_bbox, block, table_idx, debug_mode
-                )
+                # recognition_table_pdfplumber(
+                #     pdfp.pages[page_idx], table_bbox, block, table_idx, True
+                # )
+                recognition_table(block, table_idx, debug_mode)
 
                 is_success = recognition_table_ocr(
                     doc, page_idx, block_idx, block, table_bbox, model, debug_mode
