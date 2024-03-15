@@ -3,7 +3,7 @@ import os
 from typing import List
 from marker.bbox import merge_boxes
 from marker.cleaners.nougat import get_image_bytes
-from marker.cleaners.utils import merge_target_blocks, set_block_type
+from marker.cleaners.utils import save_debug_info, merge_target_blocks, set_block_type
 from marker.schema import Block, Page
 import fitz
 
@@ -57,7 +57,4 @@ def extend_picture_blocks(doc: fitz.Document, pages: List[Page], debug_mode: boo
 
             # save picture image
             if debug_mode:
-                file_name = f"picture_{page_idx}_{block_idx}.bmp"
-                save_path = os.path.join("./", file_name)
-                with open(save_path, "wb") as f:
-                    f.write(table_image.getvalue())
+                save_debug_info(table_image, "picture", page_idx, block_idx)

@@ -9,6 +9,7 @@ import io
 from PIL import Image
 from transformers import LayoutLMv3Processor
 import numpy as np
+from marker.cleaners.utils import save_debug_info
 from marker.settings import settings
 from marker.schema import Page, BlockType
 import torch
@@ -309,6 +310,8 @@ def match_predictions_to_boxes(
 
 def save_image(pages, images, pages_types):
     for i, (image, page_types) in enumerate(zip(images, pages_types)):
+        if image is None or len(page_types) == 0:
+            continue
         draw = ImageDraw.Draw(image)
         font = ImageFont.load_default()
 
@@ -325,11 +328,9 @@ def save_image(pages, images, pages_types):
                 outline="red",
                 width=2,
             )
-            draw.text((bbox[0] * ratio, bbox[1] * ratio), label, fill="red", font=font)
+            draw.text((bbox[0] * ratio, bbox[1] * ratio), label, fill="blue", font=font)
 
-        image_save_path = f"segmentation_image_page_{i}.png"
-        image.save(image_save_path)
-        print(f"Saved: {image_save_path}")
+        save_debug_info(image, "layout_segmenter", i)
 
 
 def get_pages_types(

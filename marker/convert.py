@@ -4,6 +4,7 @@ from marker.analyzer.spans import SpanType, SpansAnalyzer
 from marker.cleaners.picture import extend_picture_blocks, merge_picture_blocks
 
 from marker.cleaners.table import process_tables
+from marker.cleaners.utils import save_debug_doc_info
 from marker.debug.data import dump_bbox_debug_data
 from marker.extract_text import get_doc_text, get_pages, get_specific_page
 from marker.cleaners.headers import filter_header_footer, filter_common_titles
@@ -69,9 +70,7 @@ def get_all_spans(pages: List[Page]) -> List[Span]:
                 for span in line.spans:
                     spans.append(span)
     # FOR DEBUG
-    with open("all_spans_type.txt", "w", encoding="utf-8") as file:
-        for span in spans:
-            file.write(str(span) + "\n")
+    save_debug_doc_info("spans_type", spans, lambda x: str(x))
     return spans
 
 

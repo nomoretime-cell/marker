@@ -6,6 +6,7 @@ from pdfplumber import page
 from marker.bbox import merge_boxes
 from marker.cleaners.nougat import get_image_bytes, get_tokens_len, process
 from marker.cleaners.utils import (
+    save_debug_info,
     merge_target_blocks,
     set_block_type,
     set_special_block_type,
@@ -159,7 +160,7 @@ def recognition_table(block: Block, table_idx: int, debug_mode):
             table_row.append(current_cell)
         table_matrix.append(table_row)
 
-    table_to_markdown(table_matrix, block, table_idx, debug_mode)
+    return table_to_markdown(table_matrix, block, table_idx)
 
 
 def recognition_table_pdfplumber(
@@ -180,10 +181,10 @@ def recognition_table_pdfplumber(
     table = pdfp_page.crop(table_bbox).extract_tables(table_settings)
     if table == []:
         return
-    table_to_markdown(table[0], block, table_idx, debug_mode)
+    return table_to_markdown(table[0], block, table_idx)
 
 
-def table_to_markdown(table: List[List[str]], block: Block, table_idx: int, debug_mode):
+def table_to_markdown(table: List[List[str]], block: Block, table_idx: int):
     # convert table matrix to markdown
     new_text = tabulate(table, tablefmt="github")
     block.lines = [
@@ -201,28 +202,19 @@ def table_to_markdown(table: List[List[str]], block: Block, table_idx: int, debu
             ],
         )
     ]
-
-    if debug_mode:
-        with open("inline_table.md", "a") as file:
-            file.write(f"{new_text} \n")
+    return new_text
 
 
-def recognition_table_ocr(
-    doc, page_idx, block_idx, block, table_bbox, model, debug_mode
-):
+def get_table_image(doc, page_idx, table_bbox):
     # get table image
     bboxes: List[List[float]] = [table_bbox]
     table_image: io.BytesIO = get_image_bytes(doc[page_idx], table_bbox, bboxes)
     if table_image is None:
-        return False
+        return None
+    return table_image
 
-    # save table image
-    if debug_mode:
-        file_name = f"table_{page_idx}_{block_idx}.bmp"
-        save_path = os.path.join("./", file_name)
-        with open(save_path, "wb") as f:
-            f.write(table_image.getvalue())
 
+def recognition_table_ocr(table_image, block, model):
     # get result from nougat
     table_images: List[io.BytesIO] = []
     table_token_list: List[int] = []
@@ -231,11 +223,7 @@ def recognition_table_ocr(
     table_token_list.append(tokens_len)
     predictions: List[str] = process(table_images, table_token_list, model, 1)
 
-    # save result
-    if debug_mode:
-        with open("inline_table.md", "a") as file:
-            file.write(f"table_{page_idx}_{block_idx} {predictions}  \n")
-    return True
+    return predictions
 
 
 def process_tables(
@@ -257,15 +245,18 @@ def process_tables(
                 if not is_success:
                     continue
 
-                # recognition_table_pdfplumber(
-                #     pdfp.pages[page_idx], table_bbox, block, table_idx, True
-                # )
-                recognition_table(block, table_idx, debug_mode)
-
-                is_success = recognition_table_ocr(
-                    doc, page_idx, block_idx, block, table_bbox, model, debug_mode
-                )
-                if not is_success:
+                image = get_table_image(doc, page_idx, table_bbox)
+                if image is None:
                     continue
+
+                # recognition_table_pdfplumber(pdfp.pages[page_idx], table_bbox, block, table_idx, True)
+                table_text = recognition_table(block, table_idx, debug_mode)
+                predictions = recognition_table_ocr(image, block, model)
+
+                # save result
+                if debug_mode:
+                    save_debug_info(
+                        image, "table", page_idx, block_idx, [table_text, predictions]
+                    )
 
                 table_idx += 1

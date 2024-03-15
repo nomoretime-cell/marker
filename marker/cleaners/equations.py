@@ -5,6 +5,7 @@ from nougat.utils.checkpoint import get_checkpoint
 from marker.analyzer.spans import SpanType, SpansAnalyzer
 from marker.bbox import is_in_same_line, merge_boxes
 from marker.cleaners.nougat import get_image_bytes, get_tokens_len, process
+from marker.cleaners.utils import save_debug_info
 from marker.debug.data import dump_nougat_debug_data
 from marker.settings import settings
 from marker.schema import Page, Span, Line, Block, BlockType
@@ -260,13 +261,6 @@ def replace_equations(
                 doc_page, merged_equation_bbox, equation_bboxes
             )
 
-            if debug_mode:
-                # Save equation image
-                file_name = f"equation_{page_idx}_{index}.bmp"
-                save_path = os.path.join("./", file_name)
-                with open(save_path, "wb") as f:
-                    f.write(equation_image.getvalue())
-
             doc_equation_images.append(equation_image)
             doc_merged_equation_bbox.append(merged_equation_bbox)
 
@@ -274,6 +268,11 @@ def replace_equations(
     predictions: List[str] = process(
         doc_equation_images, flat_equation_region_lens, model, batch_size
     )
+
+    # save result
+    if debug_mode:
+        for idx, image in enumerate(doc_equation_images):
+            save_debug_info(image, "equations", page_idx, idx, [predictions[idx]])
 
     # 4. Replace blocks with predictions
     page_start = 0
@@ -423,18 +422,6 @@ def replace_inline_equations(
                     equation_images, equation_token_list, nougat_model, 1
                 )
 
-                if debug_mode:
-                    # Save equation image
-                    file_name = f"inline_equation_{pnum}_{block_idx}_{line_index}.bmp"
-                    save_path = os.path.join("./", file_name)
-                    with open(save_path, "wb") as f:
-                        f.write(equation_image.getvalue())
-
-                    with open("inline_equation.md", "a") as file:
-                        file.write(
-                            f"{pnum}_{block_idx}_{line_index}  {predictions}  \n"
-                        )
-
                 # replace line's text
                 block.lines[line_index].spans = [
                     Span(
@@ -486,13 +473,9 @@ def replace_block_equations(
 
         if debug_mode:
             # Save equation image
-            file_name = f"inline_equation_{pnum}_{block_idx}.bmp"
-            save_path = os.path.join("./", file_name)
-            with open(save_path, "wb") as f:
-                f.write(equation_image.getvalue())
-
-            with open("inline_equation.md", "a") as file:
-                file.write(f"{pnum}_{block_idx}  {predictions}  \n")
+            save_debug_info(
+                equation_image, "inline_equations", pnum, block_idx, predictions
+            )
 
         # replace block's text
         page.blocks[block_idx].lines = [
