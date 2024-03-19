@@ -129,9 +129,9 @@ class S3Client:
         out_folder_path: str,
         file_type: list[str],
         limit: int = None,
-        filter_key: dict = None,
         signed: bool = False,
         expiration: int = 3600,
+        filter_key: dict = None,
     ) -> None:
         for object_path in self.list_objects_path(
             bucket_name, folder_path, file_type, limit
@@ -150,8 +150,13 @@ class S3Client:
                                 break
                         if filter_flag:
                             continue
-                        if json_object["path"].rsplit("/", 1)[-1] not in self.file_cache:
-                            self.file_cache.append(json_object["path"].rsplit("/", 1)[-1])
+                        if (
+                            json_object["path"].rsplit("/", 1)[-1]
+                            not in self.file_cache
+                        ):
+                            self.file_cache.append(
+                                json_object["path"].rsplit("/", 1)[-1]
+                            )
                             object_list.append(json_object)
             except Exception as e:
                 print(f"Error loading json: {e}")
@@ -160,5 +165,10 @@ class S3Client:
                 file.release_conn()
             for obj in object_list:
                 self.prepare_msg(
-                    queue, obj["bucket"], obj["path"], out_folder_path, signed, expiration
+                    queue,
+                    obj["bucket"],
+                    obj["path"],
+                    out_folder_path,
+                    signed,
+                    expiration,
                 )

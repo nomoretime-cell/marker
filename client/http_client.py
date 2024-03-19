@@ -29,9 +29,6 @@ class HttpClient:
                 "requestId": str(uuid.uuid4()),
                 "inFileUrl": message.inFileUrl,
                 "outFileUrl": message.outFileUrl,
-                # "maxPages": 100,
-                # "parallelFactor": 1,
-                # "isDebug": True,
             }
             self.send_post_request(message_body)
 
