@@ -312,6 +312,8 @@ def save_image(pages, images, pages_types):
     for i, (image, page_types) in enumerate(zip(images, pages_types)):
         if image is None or len(page_types) == 0:
             continue
+        save_debug_info(image, "origin", i)
+
         draw = ImageDraw.Draw(image)
         font = ImageFont.load_default()
 
@@ -326,7 +328,7 @@ def save_image(pages, images, pages_types):
                     (bbox[2] * ratio, bbox[3] * ratio),
                 ),
                 outline="red",
-                width=2,
+                width=1,
             )
             draw.text((bbox[0] * ratio, bbox[1] * ratio), label, fill="blue", font=font)
 
