@@ -38,6 +38,7 @@ langid = "^1.1.6"
 gradio = "^4.19.2"
 pdfplumber = "^0.11.0"
 python-docx = "^1.1.0"
+pix2tex = {extras = ["gui"], version = "^0.1.2"}
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
