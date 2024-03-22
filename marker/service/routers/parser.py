@@ -92,7 +92,7 @@ async def process(parser_request: ParserRequest):
             ).to_dict()
         else:
             is_request_processing = True
-
+    full_text = ""
     try:
         logging.info(
             f"POST request, pid: {os.getpid()}, thread id: {threading.current_thread().ident}"
