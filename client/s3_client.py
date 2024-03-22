@@ -1,9 +1,11 @@
+from io import BytesIO
 import json
 import queue
 from datetime import timedelta
 from typing import Generator
 from minio import Minio
 from minio.error import MinioException
+import requests
 from client.structure import MessageBody
 
 
@@ -172,3 +174,34 @@ class S3Client:
                     signed,
                     expiration,
                 )
+
+    def upload_object_bytes(
+        self, bucket_name: str, object_name: str, obj_bytes, obj_length
+    ) -> None:
+        try:
+            self.minio_client.put_object(
+                bucket_name,
+                object_name,
+                obj_bytes,
+                length=obj_length,
+            )
+            print(f"Object '{object_name}' uploaded to bucket '{bucket_name}'.")
+        except MinioException as e:
+            print(f"Error uploading object: {e}")
+
+    def download_and_upload(self, url, bucket_name, object_name):
+        response = requests.get(url)
+        if response.status_code == 200:
+            pdf_content = BytesIO(response.content)
+            try:
+                self.upload_object_bytes(
+                    bucket_name,
+                    object_name,
+                    pdf_content,
+                    pdf_content.getbuffer().nbytes,
+                )
+                print(f"Uploaded '{object_name}' to bucket '{bucket_name}'.")
+            except Exception as e:
+                print(f"Failed to upload file to S3: {e}")
+        else:
+            print(f"Failed to download file from {url}.")
